@@ -1,0 +1,126 @@
+rules_version = '2';
+
+// EventPost の Firestore セキュリティルール
+// Cloud Functions を使わないため、不正な書き込みや定員超過はすべてここで防ぐ。
+// Actions（Admin SDK）はルールを迂回するので、同期・メール送信・件数補正はここでは考えない。
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 申込の追加項目の上限（app/src/lib/schema.ts の MAX_FIELDS と合わせる）
+    // ルールではマップを繰り返し処理できないため、値の検証は先頭から順に書き下す
+    function validAnswerValue(v) {
+      return (v is string && v.size() <= 1000) || v is int || v is float;
+    }
+
+    function validAnswerAt(values, i) {
+      return values.size() <= i || validAnswerValue(values[i]);
+    }
+
+    function validAnswerValues(values) {
+      return values.size() <= 20
+        && validAnswerAt(values, 0) && validAnswerAt(values, 1) && validAnswerAt(values, 2)
+        && validAnswerAt(values, 3) && validAnswerAt(values, 4) && validAnswerAt(values, 5)
+        && validAnswerAt(values, 6) && validAnswerAt(values, 7) && validAnswerAt(values, 8)
+        && validAnswerAt(values, 9) && validAnswerAt(values, 10) && validAnswerAt(values, 11)
+        && validAnswerAt(values, 12) && validAnswerAt(values, 13) && validAnswerAt(values, 14)
+        && validAnswerAt(values, 15) && validAnswerAt(values, 16) && validAnswerAt(values, 17)
+        && validAnswerAt(values, 18) && validAnswerAt(values, 19);
+    }
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function verified() {
+      return signedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return verified()
+        && request.auth.token.email in get(/databases/$(database)/documents/config/admins).data.emails;
+    }
+
+    function eventPath(eventId) {
+      return /databases/$(database)/documents/events/$(eventId);
+    }
+
+    function myRegistrationPath(eventId) {
+      return /databases/$(database)/documents/events/$(eventId)/registrations/$(request.auth.uid);
+    }
+
+    // ------------------------------------------------------------------
+    // config/admins：config.yml の admins の写し（Actions が同期する）
+    // ------------------------------------------------------------------
+    match /config/admins {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // ------------------------------------------------------------------
+    // events/{eventId}：Markdown の写し（Actions が同期する）
+    // ------------------------------------------------------------------
+    match /events/{eventId} {
+      allow read: if true;
+      allow create, delete: if false;
+
+      // ログインユーザーが変更できるのは count だけ。申込かキャンセルと同時でなければならない
+      allow update: if signedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['count'])
+        && (isApplying(eventId) || isCancelling(eventId));
+
+      // 申込：count がちょうど +1、自分の申込がこの書き込みの前になく後にある、定員を超えない
+      function isApplying(eventId) {
+        return request.resource.data.count == resource.data.count + 1
+          && !exists(myRegistrationPath(eventId))
+          && existsAfter(myRegistrationPath(eventId))
+          && (resource.data.capacity == null || request.resource.data.count <= resource.data.capacity);
+      }
+
+      // キャンセル：count がちょうど −1、自分の申込がこの書き込みの前にあり後にない
+      function isCancelling(eventId) {
+        return request.resource.data.count == resource.data.count - 1
+          && exists(myRegistrationPath(eventId))
+          && !existsAfter(myRegistrationPath(eventId));
+      }
+
+      // ----------------------------------------------------------------
+      // events/{eventId}/registrations/{uid}：申込（ドキュメント ID は申込者の uid）
+      // ----------------------------------------------------------------
+      match /registrations/{uid} {
+        allow read: if (signedIn() && request.auth.uid == uid) || isAdmin();
+
+        allow create: if verified()
+          && request.auth.uid == uid
+          && validRegistration(eventId, uid);
+
+        // 内容を変えたいときはキャンセルして申し込み直す
+        allow update: if false;
+
+        allow delete: if signedIn()
+          && request.auth.uid == uid
+          && request.time < get(eventPath(eventId)).data.startAt
+          && getAfter(eventPath(eventId)).data.count == get(eventPath(eventId)).data.count - 1;
+
+        function validRegistration(eventId, uid) {
+          let event = get(eventPath(eventId)).data;
+          let eventAfter = getAfter(eventPath(eventId)).data;
+          let d = request.resource.data;
+          let keys = ['uid', 'name', 'email', 'answers', 'createdAt'];
+          return event.published == true
+            && event.archived == false
+            && request.time < event.deadline
+            && eventAfter.count == event.count + 1
+            && d.keys().hasOnly(keys)
+            && d.keys().hasAll(keys)
+            && d.uid == uid
+            && d.email == request.auth.token.email
+            && d.name is string && d.name.size() > 0 && d.name.size() <= 100
+            && d.answers is map
+            && d.answers.keys().hasOnly(event.fieldIds)
+            && validAnswerValues(d.answers.values())
+            && d.createdAt == request.time;
+        }
+      }
+    }
+  }
+}

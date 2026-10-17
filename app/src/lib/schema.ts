@@ -11,6 +11,12 @@ z.config(z.locales.ja());
 /** イベント ID（＝ファイル名）。Firestore のドキュメント ID と URL に使う */
 export const EVENT_ID_PATTERN = /^[A-Za-z0-9-]+$/;
 
+/** 追加項目の上限（firebase/firestore.rules の validAnswerValues と合わせる） */
+export const MAX_FIELDS = 20;
+/** 申込の回答・名前の文字数の上限（firestore.rules と合わせる） */
+export const MAX_ANSWER_LENGTH = 1000;
+export const MAX_NAME_LENGTH = 100;
+
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -143,7 +149,7 @@ export const eventSchema = z
     capacity: z.number().int().positive().nullable().default(null),
     deadline: dateTimeString.optional(),
     published: z.boolean().default(true),
-    fields: z.array(fieldSchema).default([]),
+    fields: z.array(fieldSchema).max(MAX_FIELDS, `追加項目（fields）は ${MAX_FIELDS} 件までです`).default([]),
     reminder_note: z.string().optional(),
   })
   .refine((e) => e.start < e.end, {
