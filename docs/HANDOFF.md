@@ -448,8 +448,9 @@ Functions を使わないため、不正や定員超過はすべてルールで�
 | — | リポジトリ名・パッケージ名を `event-post` に統一（表示名は EventPost のまま） | `aaf55de` |
 | 3 | `sync-firestore.ts`（単体 7 件・エミュレーター 4 件のテスト）、`deploy.yml`、`ci.yml` | `fdcc999` ほか |
 | 4 | 詳細ページのログイン・申込・キャンセル、一覧と詳細の残席表示、開発用の Auth エミュレーター | `cbd87b7` ほか |
+| 5 | 管理ページと CSV、管理者判定のメール小文字化 | （このコミット） |
 
-次は **ステップ 5（管理ページと CSV）**。各ステップは「計画を提示 → 確認 → 実装 → 動作確認 → コミット」で進める。
+次は **ステップ 6（`notify.ts` と `notify.yml`）**。各ステップは「計画を提示 → 確認 → 実装 → 動作確認 → コミット」で進める。
 
 ワークフローは手元で動かせないため、YAML の構文までしか確認していない。初回の push で Deploy と CI が通るかを GitHub 上で確認すること。
 
@@ -471,6 +472,12 @@ Functions を使わないため、不正や定員超過はすべてルールで�
 - 申込パネルの状態は 8 章の表のとおり。状態ごとの中身を `ApplyPanel.astro` の `<template>` に持ち、script で差し替える。キャンセル確認は `<dialog>` の `showModal()`（フォーカスの閉じ込めと Esc はブラウザ標準）
 - ポップアップを自分で閉じた場合（`auth/popup-closed-by-user`）はエラーにせず元の表示に戻す
 - 申込済みの表示では、開催当日の申込にはリマインドの一文を出さない（ステップ 6 の notify.ts と合わせる）
+- ルールの管理者判定は `request.auth.token.email.lower()` で照合する（`config/admins` は小文字で同期しているため）
+- 管理ページは、`config/admins` を読めるかどうかで管理者を判定する（読めなければ「権限がありません」）。申込一覧の読み取りが拒否された場合も同じ表示にする
+- 管理ページに出すのは公開中（`published: true`）のイベントだけ。選択中のイベントは `?event=<id>` で持つ。左の申込数は `events` の `count`、右の数字は registrations の実数
+- CSV の列は「お名前・メールアドレス・追加項目（fields 順）・申込日時・受付メール送信日時・リマインド送信日時」。日時は `2026/10/17 14:02`（JST）。先頭が `= + - @ タブ CR` の文字列には `'` を付ける（数値はそのまま）
+- リマインドの時刻（開催前日の `reminder_hour` 時）と削除日（開催日の `retention_days` 日後の 0:00）は `time.ts` の `reminderAt()` / `retentionDate()`。notify.ts でも使う
+- `BaseLayout` に `wide`（ヘッダーとフッターを 1280px 幅にする）を追加。ヘッダーは狭い画面で折り返す
 
 ### 主なファイル
 - `app/src/lib/schema.ts`：config.yml とイベントの zod スキーマ（scripts/ からも使う。Astro 固有の import をしない）
@@ -485,6 +492,9 @@ Functions を使わないため、不正や定員超過はすべてルールで�
 - `app/src/lib/answers.ts`：申込フォームの検証と `answers` への変換
 - `app/src/lib/apply.ts`：申込・キャンセルのトランザクション、拒否されたときの理由の推定。`db` を引数に取るので `tests/rules/apply.test.ts` からも使う
 - `app/src/components/ApplyPanel.astro`：詳細ページの申込パネル
+- `app/src/lib/admin.ts`：管理ページの読み取り（`canReadAdmin()` / `getEventCounts()` / `listRegistrations()`）
+- `app/src/lib/csv.ts`：CSV の生成（BOM 付き UTF-8、エスケープ、CSV インジェクション対策）
+- `app/src/pages/admin/index.astro`：管理ページ
 
 ### コマンド
 - `npm run dev` / `npm run build` / `npm run check` / `npm test`（単体テスト）
@@ -515,11 +525,11 @@ firebase-tools 15.34 のソース（`lib/deploy/index.js`、`lib/deploy/firestor
 1. この仕様書の 2 章（決定事項）、8 章（画面）、15 章（このメモ）を読む。画面の見た目は Design キャンバス「イベント管理 画面デザイン」に合わせる
 2. 手元の状態を確認する。どれも通る状態で引き継いでいる
    ```sh
-   npm test               # 単体テスト（37 件）
+   npm test               # 単体テスト（46 件）
    npm run validate       # config.yml とイベントの検証
    npm run check          # 型チェック
    export PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH
-   npm run test:rules     # ルールと同期のテスト（47 件）
+   npm run test:rules     # ルールと同期のテスト（49 件）
    ```
 3. 次のステップの計画を提示して確認を取ってから実装する
 
@@ -533,7 +543,10 @@ firebase-tools 15.34 のソース（`lib/deploy/index.js`、`lib/deploy/firestor
 ### ステップ 4：詳細ページのログイン・申込・キャンセル（完了）
 エミュレーターと開発サーバーで、次を画面で確かめた：未ログイン → ログイン → 必須項目のエラー → 申込 → 再読み込み後も申込済み → キャンセル確認（Esc で閉じるとフォーカスが戻る）→ キャンセル → もう一度申し込む、申込中に満席、満席、受付終了、開催後、ログアウト、390px 幅で横にはみ出さないこと。
 
-### ステップ 5：管理ページと CSV
+### ステップ 5：管理ページと CSV（完了）
+エミュレーターと開発サーバーで、次を画面で確かめた：未ログイン → 一般ユーザーで「権限がありません」→ 大文字を含む管理者メールで管理画面、数字カード（申込数・受付メール・リマインド時刻）、申込者の表と送信状態、イベントの切り替え（URL も変わる）、CSV の中身（BOM・エスケープ・数式の無害化）、ログアウト、390px 幅で横にはみ出さず表だけが横スクロールすること。本物の Google ログインと、Excel で実際に開く確認はしていない。
+
+当初のメモ：
 - `app/src/pages/admin/index.astro` を新しく作る。`noindex` を付ける
 - 管理者かどうかはルールに任せる。registrations の読み取りが `permission-denied` なら「権限がありません」と出す
 - ルールの管理者判定はメールアドレスの完全一致。`config/admins` は小文字で同期しているので、トークンのメールに大文字が混ざると弾かれる。必要ならルール側で `request.auth.token.email.lower()` を使い、テストを足す

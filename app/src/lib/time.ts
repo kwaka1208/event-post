@@ -55,6 +55,30 @@ export function formatTime(d: Date): string {
   return `${pad(p.hour)}:${pad(p.minute)}`;
 }
 
+/** JST の日付に日数を足して、その日の 0:00（JST）を返す */
+export function addJstDays(d: Date, days: number): Date {
+  const p = jstParts(d);
+  // 月末・年末の繰り上がりは Date.UTC に任せる
+  const t = new Date(Date.UTC(p.year, p.month - 1, p.day + days));
+  return jstDateTime(`${t.getUTCFullYear()}-${pad(t.getUTCMonth() + 1)}-${pad(t.getUTCDate())}`, '00:00');
+}
+
+/** リマインドを送り始める時刻：開催前日の hour 時（JST） */
+export function reminderAt(startAt: Date, hour: number): Date {
+  return new Date(addJstDays(startAt, -1).getTime() + hour * 60 * 60 * 1000);
+}
+
+/** 申込データを削除する日：開催日の days 日後の 0:00（JST） */
+export function retentionDate(startAt: Date, days: number): Date {
+  return addJstDays(startAt, days);
+}
+
+/** 2026/10/17 14:02（CSV と管理ページの表で使う） */
+export function formatDateTimeNumeric(d: Date): string {
+  const p = jstParts(d);
+  return `${p.year}/${pad(p.month)}/${pad(p.day)} ${pad(p.hour)}:${pad(p.minute)}`;
+}
+
 function pad(n: number): string {
   return String(n).padStart(2, '0');
 }

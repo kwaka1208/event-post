@@ -400,6 +400,20 @@ describe('読み取り', () => {
     await assertFails(getDocs(collection(guestDb(), 'events/open/registrations')));
   });
 
+  it('管理者のメールアドレスは大文字・小文字を区別しない', async () => {
+    const db = env
+      .authenticatedContext('admin', { email: 'Organizer@Example.ORG', email_verified: true })
+      .firestore() as unknown as Firestore;
+    await assertSucceeds(getDocs(collection(db, 'events/open/registrations')));
+  });
+
+  it('管理者でないメールアドレスは大文字にしても読めない', async () => {
+    const db = env
+      .authenticatedContext('mallory', { email: 'MALLORY@EXAMPLE.ORG', email_verified: true })
+      .firestore() as unknown as Firestore;
+    await assertFails(getDocs(collection(db, 'events/open/registrations')));
+  });
+
   it('メールアドレスが未確認なら管理者として扱わない', async () => {
     const db = env
       .authenticatedContext('admin', { email: ADMIN_EMAIL, email_verified: false })

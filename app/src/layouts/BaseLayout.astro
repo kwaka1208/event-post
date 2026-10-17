@@ -10,10 +10,12 @@ interface Props {
   title?: string;
   description?: string;
   noindex?: boolean;
+  /** ヘッダーとフッターを管理ページ用の広い幅にする */
+  wide?: boolean;
 }
 
 const config = loadConfig();
-const { title, description = config.group.description, noindex = false } = Astro.props;
+const { title, description = config.group.description, noindex = false, wide = false } = Astro.props;
 const pageTitle = title ? `${title} | ${config.group.name}` : config.group.name;
 const canonical = Astro.site ? new URL(Astro.url.pathname, Astro.site).href : undefined;
 ---
@@ -42,7 +44,7 @@ const canonical = Astro.site ? new URL(Astro.url.pathname, Astro.site).href : un
   </head>
   <body>
     <header class="site-header">
-      <div class="inner">
+      <div class:list={['inner', { wide }]}>
         <a href={url()} class="brand">
           <Logo />
           <span class="brand-name">{config.group.name}</span>
@@ -54,7 +56,7 @@ const canonical = Astro.site ? new URL(Astro.url.pathname, Astro.site).href : un
     <slot />
 
     <footer class="site-footer">
-      <div class="inner">
+      <div class:list={['inner', { wide }]}>
         <div>
           お問い合わせ：<a href={`mailto:${config.group.contact_email}`}>{config.group.contact_email}</a>
         </div>
@@ -74,6 +76,7 @@ const canonical = Astro.site ? new URL(Astro.url.pathname, Astro.site).href : un
   }
   .site-header .inner {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 12px;
     padding: 14px 20px;
@@ -82,6 +85,9 @@ const canonical = Astro.site ? new URL(Astro.url.pathname, Astro.site).href : un
     width: 100%;
     max-width: 640px;
     margin: 0 auto;
+  }
+  .inner.wide {
+    max-width: 1280px;
   }
   .brand {
     display: flex;

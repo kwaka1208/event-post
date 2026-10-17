@@ -35,9 +35,10 @@ service cloud.firestore {
       return signedIn() && request.auth.token.email_verified == true;
     }
 
+    // config/admins は小文字で同期しているので、トークンのメールも小文字にして照合する
     function isAdmin() {
       return verified()
-        && request.auth.token.email in get(/databases/$(database)/documents/config/admins).data.emails;
+        && request.auth.token.email.lower() in get(/databases/$(database)/documents/config/admins).data.emails;
     }
 
     function eventPath(eventId) {

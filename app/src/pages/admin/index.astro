@@ -1,0 +1,871 @@
+---
+// 管理ページ。イベントの一覧と、選んだイベントの申込者・CSV を表示する。
+// 管理者かどうかはルール任せ（config/admins を読めるかで判定し、読めなければ「権限がありません」）。
+// イベント情報（タイトル・日時・追加項目）はビルド時に埋め込み、申込は Firestore から読む。
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { loadConfig } from '@/lib/config';
+import { getPublishedEvents } from '@/lib/events';
+import { formatFullDate, formatMonthDay, formatTime } from '@/lib/time';
+import { url } from '@/lib/url';
+
+const config = loadConfig();
+const events = (await getPublishedEvents()).map((e) => ({
+  id: e.id,
+  title: e.data.title,
+  startAt: e.times.startAt.toISOString(),
+  endAt: e.times.endAt.toISOString(),
+  capacity: e.data.capacity,
+  fields: e.data.fields,
+  shortDate: formatMonthDay(e.times.startAt),
+  fullDate: `${formatFullDate(e.times.startAt)}${formatTime(e.times.startAt)}–${formatTime(e.times.endAt)}`,
+  pageUrl: url(`events/${e.id}`),
+}));
+---
+
+<BaseLayout title="管理" noindex wide>
+  <Fragment slot="header-extra">
+    <span class="admin-badge">管理</span>
+    <span class="spacer"></span>
+    <span class="account" data-account hidden>
+      <span class="account-email" data-slot="email"></span>
+      <button type="button" class="button-text" data-action="logout">ログアウト</button>
+    </span>
+  </Fragment>
+
+  <div class="page" data-admin data-state="loading" aria-busy="true">
+    <!-- 読み込み中 -->
+    <section class="notice" data-view="loading">
+      <div class="skeleton" style="width: 40%; height: 18px"></div>
+      <div class="skeleton" style="height: 52px; border-radius: 12px"></div>
+      <noscript><p>管理ページを使うには、ブラウザの JavaScript を有効にしてください。</p></noscript>
+    </section>
+
+    <!-- 未ログイン -->
+    <section class="notice" data-view="guest" hidden>
+      <h1 class="notice-title" tabindex="-1" data-focus>管理ページ</h1>
+      <p>主催者の Google アカウントでログインしてください。</p>
+      <p class="error" role="alert" data-login-error hidden></p>
+      <button type="button" class="button-primary" data-action="login">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><path d="M10 17l5-5-5-5"></path><path d="M15 12H3"></path></svg>
+        Googleでログイン
+      </button>
+    </section>
+
+    <!-- 権限なし -->
+    <section class="notice" data-view="denied" hidden>
+      <h1 class="notice-title" tabindex="-1" data-focus>権限がありません</h1>
+      <p>
+        <span data-slot="email"></span> は管理者として登録されていません。別のアカウントでログインし直すか、
+        <code>site/config.yml</code> の <code>admins</code> を確認してください。
+      </p>
+      <button type="button" class="button-secondary" data-action="logout">ログアウト</button>
+    </section>
+
+    <!-- 読み込みエラー -->
+    <section class="notice" data-view="error" hidden>
+      <h1 class="notice-title" tabindex="-1" data-focus>読み込めませんでした</h1>
+      <p role="alert">通信状況を確認して、再読み込みしてください。</p>
+      <button type="button" class="button-secondary" data-action="reload">再読み込み</button>
+    </section>
+
+    <!-- 管理画面 -->
+    <div class="dashboard" data-view="dashboard" hidden>
+      <nav class="event-nav" aria-label="イベント">
+        <div class="nav-heading">これからのイベント</div>
+        <div class="nav-list" data-nav="upcoming"></div>
+        <div class="nav-heading">過去のイベント</div>
+        <div class="nav-list" data-nav="past"></div>
+      </nav>
+
+      <main class="detail" data-detail>
+        <p class="empty" data-no-events hidden>公開中のイベントはありません。</p>
+
+        <div class="detail-body" data-detail-body hidden>
+          <div class="detail-head">
+            <div class="detail-title">
+              <span class="detail-date" data-slot="date"></span>
+              <h1 tabindex="-1" data-focus data-slot="title"></h1>
+            </div>
+            <div class="actions">
+              <a class="button-outline" data-event-link target="_blank" rel="noopener">イベントページを開く</a>
+              <button type="button" class="button-accent" data-action="csv" disabled>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="M7 10l5 5 5-5"></path><path d="M12 15V3"></path></svg>
+                CSVをダウンロード
+              </button>
+            </div>
+          </div>
+
+          <div class="stats" aria-live="polite">
+            <div class="stat">
+              <span class="stat-label">申込</span>
+              <span class="stat-value"><span data-slot="count">–</span> <span class="stat-unit" data-slot="capacity"></span></span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">受付メール</span>
+              <span class="stat-value" data-slot="mail-value">–</span>
+              <span class="stat-note" data-slot="mail-note"></span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">リマインド</span>
+              <span class="stat-value stat-value-small" data-slot="reminder-at"></span>
+              <span class="stat-note" data-slot="reminder-note"></span>
+            </div>
+          </div>
+
+          <p class="error" role="alert" data-detail-error hidden></p>
+
+          <div class="table-wrap" tabindex="0" role="region" aria-label="申込者の一覧">
+            <table>
+              <thead><tr data-table-head></tr></thead>
+              <tbody data-table-body></tbody>
+            </table>
+          </div>
+
+          <p class="note" data-slot="retention"></p>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script
+    type="application/json"
+    id="admin-data"
+    set:html={JSON.stringify({
+      events,
+      confirmation: config.mail.confirmation,
+      reminderHour: config.mail.reminder_hour,
+      retentionDays: config.retention_days,
+    })}
+  />
+</BaseLayout>
+
+<script>
+  import { FirebaseError } from 'firebase/app';
+  import { onAuthStateChanged, signInWithPopup, signOut, type User } from 'firebase/auth';
+  import { canReadAdmin, getEventCounts, listRegistrations } from '@/lib/admin';
+  import { registrationsCsv, type RegistrationRow } from '@/lib/csv';
+  import { auth, db, googleProvider } from '@/lib/firebase';
+  import type { EventField } from '@/lib/schema';
+  import { formatFullDate, formatMonthDay, formatTime, jstParts, reminderAt, retentionDate } from '@/lib/time';
+
+  interface AdminEvent {
+    id: string;
+    title: string;
+    startAt: string;
+    endAt: string;
+    capacity: number | null;
+    fields: EventField[];
+    shortDate: string;
+    fullDate: string;
+    pageUrl: string;
+  }
+
+  type View = 'loading' | 'guest' | 'denied' | 'error' | 'dashboard';
+
+  const data: {
+    events: AdminEvent[];
+    confirmation: boolean;
+    reminderHour: number;
+    retentionDays: number;
+  } = JSON.parse(document.getElementById('admin-data')!.textContent!);
+
+  const page = document.querySelector<HTMLElement>('[data-admin]')!;
+  const account = document.querySelector<HTMLElement>('[data-account]')!;
+
+  let user: User | null = null;
+  let counts = new Map<string, number>();
+  let rows: RegistrationRow[] = [];
+  let selected: AdminEvent | null = null;
+  /** 古い読み込みの結果で上書きしないための番号 */
+  let loadSeq = 0;
+
+  function $<T extends HTMLElement = HTMLElement>(selector: string, root: ParentNode = document): T {
+    return root.querySelector<T>(selector)!;
+  }
+
+  function fillAll(name: string, text: string): void {
+    for (const el of document.querySelectorAll<HTMLElement>(`[data-slot="${name}"]`)) el.textContent = text;
+  }
+
+  function show(view: View, focus = false): void {
+    for (const el of page.querySelectorAll<HTMLElement>('[data-view]')) el.hidden = el.dataset.view !== view;
+    page.dataset.state = view;
+    page.setAttribute('aria-busy', String(view === 'loading'));
+    account.hidden = !user;
+    if (focus) $<HTMLElement>(`[data-view="${view}"] [data-focus]`, page)?.focus();
+  }
+
+  // ---------------------------------------------------------------------------
+  // ログイン・ログアウト
+  // ---------------------------------------------------------------------------
+
+  const loginButton = $<HTMLButtonElement>('[data-action="login"]');
+  const loginError = $('[data-login-error]');
+  loginButton.addEventListener('click', async () => {
+    loginButton.disabled = true;
+    loginError.hidden = true;
+    try {
+      await signInWithPopup(auth, googleProvider);
+      // 続きは onAuthStateChanged で描画する
+    } catch (e) {
+      const code = e instanceof FirebaseError ? e.code : '';
+      if (code !== 'auth/popup-closed-by-user' && code !== 'auth/cancelled-popup-request') {
+        console.error(e);
+        loginError.textContent =
+          code === 'auth/popup-blocked'
+            ? 'ログインできませんでした。ポップアップがブロックされていないか確認して、もう一度お試しください。'
+            : 'ログインできませんでした。時間をおいて、もう一度お試しください。';
+        loginError.hidden = false;
+      }
+    } finally {
+      loginButton.disabled = false;
+    }
+  });
+
+  for (const btn of document.querySelectorAll('[data-action="logout"]')) {
+    btn.addEventListener('click', () => signOut(auth).catch((e) => console.error(e)));
+  }
+  $('[data-action="reload"]').addEventListener('click', () => location.reload());
+
+  // ---------------------------------------------------------------------------
+  // イベントの一覧（左）
+  // ---------------------------------------------------------------------------
+
+  function countLabel(ev: AdminEvent): string {
+    const count = counts.get(ev.id);
+    if (count === undefined) return '未同期';
+    if (ev.capacity === null) return `${count} 名（定員なし）`;
+    return count >= ev.capacity ? `${count} / ${ev.capacity} 名（満席）` : `${count} / ${ev.capacity} 名`;
+  }
+
+  function selectedFromUrl(): AdminEvent | null {
+    const id = new URL(location.href).searchParams.get('event');
+    const found = data.events.find((e) => e.id === id);
+    if (found) return found;
+    // 指定がなければ、次に開催するイベント（なければ最後のイベント）
+    const now = Date.now();
+    return data.events.find((e) => new Date(e.endAt).getTime() > now) ?? data.events.at(-1) ?? null;
+  }
+
+  function renderNav(): void {
+    const now = Date.now();
+    const upcoming = $('[data-nav="upcoming"]');
+    const past = $('[data-nav="past"]');
+    upcoming.replaceChildren();
+    past.replaceChildren();
+    // 過去のイベントは新しい順
+    for (const ev of [...data.events].reverse()) {
+      if (new Date(ev.endAt).getTime() > now) continue;
+      past.append(navLink(ev, false));
+    }
+    for (const ev of data.events) {
+      if (new Date(ev.endAt).getTime() > now) upcoming.append(navLink(ev, true));
+    }
+    if (!upcoming.hasChildNodes()) upcoming.append(emptyNav('ありません'));
+    if (!past.hasChildNodes()) past.append(emptyNav('ありません'));
+  }
+
+  function emptyNav(text: string): HTMLElement {
+    const p = document.createElement('p');
+    p.className = 'nav-empty';
+    p.textContent = text;
+    return p;
+  }
+
+  function navLink(ev: AdminEvent, detailed: boolean): HTMLAnchorElement {
+    const a = document.createElement('a');
+    a.href = `?event=${encodeURIComponent(ev.id)}`;
+    a.className = detailed ? 'nav-item' : 'nav-item nav-item-past';
+    if (ev === selected) a.setAttribute('aria-current', 'page');
+    if (detailed) {
+      const date = document.createElement('span');
+      date.className = 'nav-sub';
+      date.textContent = ev.shortDate;
+      const title = document.createElement('span');
+      title.className = 'nav-title';
+      title.textContent = ev.title;
+      const count = document.createElement('span');
+      count.className = 'nav-sub';
+      count.textContent = countLabel(ev);
+      a.append(date, title, count);
+    } else {
+      a.textContent = `${ev.shortDate}${ev.title}`;
+    }
+    a.addEventListener('click', (e) => {
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+      e.preventDefault();
+      history.pushState(null, '', a.href);
+      void selectEvent(ev, true);
+    });
+    return a;
+  }
+
+  // ---------------------------------------------------------------------------
+  // 選んだイベント（右）
+  // ---------------------------------------------------------------------------
+
+  function shortDateTime(d: Date): string {
+    const p = jstParts(d);
+    return `${p.month}/${p.day} ${formatTime(d)}`;
+  }
+
+  function cell(text: string, className?: string): HTMLTableCellElement {
+    const td = document.createElement('td');
+    td.textContent = text;
+    if (className) td.className = className;
+    return td;
+  }
+
+  function renderHead(ev: AdminEvent): void {
+    fillAll('date', ev.fullDate);
+    fillAll('title', ev.title);
+    $<HTMLAnchorElement>('[data-event-link]').href = ev.pageUrl;
+    const startAt = new Date(ev.startAt);
+    fillAll(
+      'retention',
+      `このイベントの申込データは、${formatFullDate(retentionDate(startAt, data.retentionDays))}に自動で削除されます。CSVには追加項目の回答も含まれます。`,
+    );
+
+    const head = $('[data-table-head]');
+    head.replaceChildren();
+    const labels = ['お名前', 'メールアドレス', ...ev.fields.map((f) => f.label), '申込日時', '受付メール'];
+    for (const label of labels) {
+      const th = document.createElement('th');
+      th.scope = 'col';
+      th.textContent = label;
+      head.append(th);
+    }
+  }
+
+  function renderStats(ev: AdminEvent, loaded: boolean): void {
+    const startAt = new Date(ev.startAt);
+    fillAll('count', loaded ? String(rows.length) : '–');
+    fillAll('capacity', ev.capacity === null ? '名（定員なし）' : `/ 定員 ${ev.capacity} 名`);
+
+    const sent = rows.filter((r) => r.confirmationSentAt).length;
+    if (!data.confirmation) {
+      fillAll('mail-value', '送らない設定');
+      fillAll('mail-note', 'config.yml の mail.confirmation');
+    } else {
+      fillAll('mail-value', loaded ? `${sent} / ${rows.length} 件 送信済み` : '–');
+      fillAll('mail-note', loaded && sent < rows.length ? '残りは次の定時処理で送信' : '');
+    }
+
+    const at = reminderAt(startAt, data.reminderHour);
+    fillAll('reminder-at', `${formatMonthDay(at)}${formatTime(at)} 以降`);
+    const reminded = rows.filter((r) => r.remindedAt).length;
+    let note = '';
+    if (loaded) {
+      if (rows.length > 0 && reminded === rows.length) note = '送信済み';
+      else if (reminded > 0) note = `${reminded} / ${rows.length} 件 送信済み`;
+      else if (Date.now() >= startAt.getTime()) note = '送信していません';
+      else note = 'まだ送信していません';
+    }
+    fillAll('reminder-note', note);
+  }
+
+  function renderTable(ev: AdminEvent, message?: string): void {
+    const body = $('[data-table-body]');
+    body.replaceChildren();
+    const columns = ev.fields.length + 4;
+    if (message !== undefined || rows.length === 0) {
+      const tr = document.createElement('tr');
+      const td = cell(message ?? 'まだ申込はありません。', 'table-empty');
+      td.colSpan = columns;
+      tr.append(td);
+      body.append(tr);
+      return;
+    }
+    for (const r of rows) {
+      const tr = document.createElement('tr');
+      tr.append(cell(r.name, 'col-name'), cell(r.email));
+      for (const f of ev.fields) {
+        const v = r.answers[f.id];
+        tr.append(cell(v === undefined ? '' : String(v), f.type === 'textarea' ? 'col-long' : 'col-nowrap'));
+      }
+      tr.append(cell(r.createdAt ? shortDateTime(r.createdAt) : '', 'col-nowrap col-sub'));
+      const status = document.createElement('td');
+      status.className = 'col-nowrap';
+      if (data.confirmation) {
+        const chip = document.createElement('span');
+        chip.className = r.confirmationSentAt ? 'chip chip-sent' : 'chip chip-wait';
+        chip.textContent = r.confirmationSentAt ? '送信済み' : '送信待ち';
+        status.append(chip);
+      } else {
+        status.textContent = '—';
+      }
+      tr.append(status);
+      body.append(tr);
+    }
+  }
+
+  async function selectEvent(ev: AdminEvent, focus = false): Promise<void> {
+    selected = ev;
+    const seq = ++loadSeq;
+    rows = [];
+    renderNav();
+    renderHead(ev);
+    renderStats(ev, false);
+    renderTable(ev, '読み込んでいます…');
+    const csvButton = $<HTMLButtonElement>('[data-action="csv"]');
+    const error = $('[data-detail-error]');
+    csvButton.disabled = true;
+    error.hidden = true;
+    if (focus) $('[data-detail] h1').focus();
+
+    try {
+      const result = await listRegistrations(db, ev.id);
+      if (seq !== loadSeq) return;
+      rows = result;
+      renderStats(ev, true);
+      renderTable(ev);
+      csvButton.disabled = false;
+    } catch (e) {
+      if (seq !== loadSeq) return;
+      console.error(e);
+      const denied = e instanceof FirebaseError && e.code === 'permission-denied';
+      if (denied) return show('denied', true);
+      error.textContent = '申込を読み込めませんでした。通信状況を確認して、再読み込みしてください。';
+      error.hidden = false;
+      renderTable(ev, '読み込めませんでした');
+    }
+  }
+
+  $('[data-action="csv"]').addEventListener('click', () => {
+    if (!selected) return;
+    const blob = new Blob([registrationsCsv(selected.fields, rows)], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${selected.id}-registrations.csv`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 0);
+  });
+
+  window.addEventListener('popstate', () => {
+    const ev = selectedFromUrl();
+    if (ev && page.dataset.state === 'dashboard') void selectEvent(ev);
+  });
+
+  // ---------------------------------------------------------------------------
+  // 初期化
+  // ---------------------------------------------------------------------------
+
+  async function showDashboard(focus: boolean): Promise<void> {
+    try {
+      counts = await getEventCounts(db);
+    } catch (e) {
+      console.error('申込数を読み込めませんでした', e);
+    }
+    show('dashboard');
+    const ev = selectedFromUrl();
+    $('[data-no-events]').hidden = ev !== null;
+    $('[data-detail-body]').hidden = ev === null;
+    if (ev) await selectEvent(ev, focus);
+    else renderNav();
+  }
+
+  let first = true;
+  onAuthStateChanged(auth, async (u) => {
+    // 初回の描画ではフォーカスを動かさない。ログイン・ログアウトの後は新しい中身へ移す
+    const focus = !first;
+    first = false;
+    user = u;
+    loadSeq++;
+    fillAll('email', u?.email ?? '');
+    if (!u) return show('guest', focus);
+
+    show('loading');
+    try {
+      if (!(await canReadAdmin(db))) return show('denied', focus);
+    } catch (e) {
+      console.error(e);
+      return show('error', focus);
+    }
+    if (user !== u) return; // 読み込み中にログアウトした
+    await showDashboard(focus);
+  });
+</script>
+
+<style>
+  /* ヘッダー（BaseLayout の header-extra スロット） */
+  .admin-badge {
+    flex: none;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: var(--text);
+    color: #fff;
+  }
+  .spacer {
+    flex: 1 1 auto;
+  }
+  .account {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+  }
+  .account[hidden] {
+    display: none;
+  }
+  .account-email {
+    font-size: 13px;
+    color: var(--text-sub);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .button-text {
+    flex: none;
+    min-height: 44px;
+    padding: 0 8px;
+    border: none;
+    background: none;
+    color: var(--text-sub);
+    font-family: inherit;
+    font-size: 13px;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
+  .page {
+    width: 100%;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 24px 20px 40px;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* ログイン・権限なしなどのお知らせ */
+  .notice {
+    max-width: 480px;
+    margin: 24px auto;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    padding: 24px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .notice[hidden] {
+    display: none;
+  }
+  .notice p {
+    margin: 0;
+  }
+  .notice-title {
+    margin: 0;
+    font-family: var(--font-heading);
+    font-size: 20px;
+  }
+  .skeleton {
+    background: var(--disabled-bg);
+    border-radius: 6px;
+  }
+  .button-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 52px;
+    border: none;
+    border-radius: var(--radius-button);
+    background: var(--accent);
+    color: #fff;
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .button-primary:hover {
+    background: var(--accent-hover);
+  }
+  .button-primary:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+  .button-secondary,
+  .button-outline {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0 14px;
+    border: 1px solid #c7ced6;
+    border-radius: 10px;
+    background: var(--card);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .button-outline:hover {
+    color: var(--text);
+    background: var(--bg);
+  }
+  .button-accent {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 16px;
+    border: none;
+    border-radius: 10px;
+    background: var(--accent);
+    color: #fff;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .button-accent:hover {
+    background: var(--accent-hover);
+  }
+  .button-accent:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+  .error {
+    margin: 0;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: var(--danger-bg);
+    color: var(--danger);
+    font-weight: 500;
+  }
+  .error[hidden] {
+    display: none;
+  }
+
+  /* 管理画面 */
+  .dashboard {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    align-items: flex-start;
+  }
+  .dashboard[hidden] {
+    display: none;
+  }
+  .event-nav {
+    flex: 1 1 240px;
+    max-width: 300px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .nav-heading {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-sub);
+    padding: 0 4px 4px;
+  }
+  .nav-heading:not(:first-child) {
+    padding-top: 12px;
+  }
+  .nav-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .nav-list :global(.nav-item) {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-height: 44px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    color: var(--text);
+    text-decoration: none;
+  }
+  .nav-list :global(.nav-item:hover) {
+    background: var(--card);
+  }
+  .nav-list :global(.nav-item[aria-current='page']) {
+    background: var(--card);
+    border-color: var(--accent);
+  }
+  .nav-list :global(.nav-item-past) {
+    padding: 8px 12px;
+    color: var(--text-sub);
+  }
+  .nav-list :global(.nav-title) {
+    font-weight: 700;
+    overflow-wrap: anywhere;
+  }
+  .nav-list :global(.nav-sub) {
+    font-size: 12px;
+    color: var(--text-sub);
+  }
+  .nav-list :global(.nav-empty) {
+    margin: 0;
+    padding: 0 12px;
+    font-size: 13px;
+    color: var(--text-sub);
+  }
+
+  .detail {
+    flex: 999 1 560px;
+    min-width: 0;
+  }
+  .detail-body {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .detail-body[hidden],
+  .empty[hidden] {
+    display: none;
+  }
+  .empty {
+    margin: 0;
+    color: var(--text-sub);
+  }
+  .detail-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+  .detail-title {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  .detail-date {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .detail-title h1 {
+    margin: 0;
+    font-family: var(--font-heading);
+    font-size: 24px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+  }
+  .stat {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .stat-label,
+  .stat-note {
+    font-size: 12px;
+    color: var(--text-sub);
+  }
+  .stat-note:empty {
+    display: none;
+  }
+  .stat-value {
+    font-size: 22px;
+    font-weight: 700;
+  }
+  .stat-value-small {
+    font-size: 16px;
+  }
+  .stat-unit {
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--text-sub);
+  }
+
+  .table-wrap {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow-x: auto;
+  }
+  table {
+    width: 100%;
+    min-width: 760px;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  thead :global(tr) {
+    background: var(--bg);
+    text-align: left;
+  }
+  thead :global(th) {
+    padding: 10px 14px;
+    font-size: 12px;
+    color: var(--text-sub);
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  tbody :global(tr) {
+    border-top: 1px solid var(--divider);
+  }
+  tbody :global(td) {
+    padding: 10px 14px;
+    vertical-align: top;
+  }
+  tbody :global(.col-name) {
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  tbody :global(.col-nowrap) {
+    white-space: nowrap;
+  }
+  tbody :global(.col-long) {
+    min-width: 200px;
+    white-space: pre-wrap;
+    color: var(--disabled-text);
+  }
+  tbody :global(.col-sub) {
+    color: var(--disabled-text);
+  }
+  tbody :global(.table-empty) {
+    padding: 20px 14px;
+    color: var(--text-sub);
+    text-align: center;
+  }
+  tbody :global(.chip) {
+    font-size: 12px;
+    font-weight: 700;
+    padding: 2px 10px;
+    border-radius: 999px;
+  }
+  tbody :global(.chip-sent) {
+    background: #e3f1e8;
+    color: #1f5c38;
+  }
+  tbody :global(.chip-wait) {
+    background: var(--few-bg);
+    color: #7a3107;
+  }
+  .note {
+    margin: 0;
+    font-size: 12px;
+    color: var(--text-sub);
+  }
+
+  @media (max-width: 720px) {
+    .event-nav {
+      max-width: none;
+    }
+  }
+</style>
