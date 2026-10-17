@@ -1,0 +1,36 @@
+# EventPost のグループ設定
+# このファイルと site/ 以下は、グループごとに自由に編集してください。
+
+group:
+  name: CoderDojo 奈良
+  description: 子どものためのプログラミング道場です。
+  contact_email: info@example.org   # サイトとメールに表示する問い合わせ先
+
+theme:
+  accent: "#0F6E8C"                 # アクセントカラー（白い文字が読める濃さが必要です）
+  # logo: assets/logo.png           # 任意。省略時はグループ名の頭文字を表示
+
+site:
+  # GitHub Pages のパス（例: /repo-name）。空なら自動で設定します
+  base: ""
+  custom_domain: ""                 # 独自ドメインを使う場合のみ
+
+timezone: Asia/Tokyo
+
+admins:                             # 管理ページを閲覧できる Google アカウント
+  - organizer@example.org
+
+firebase:                           # Firebase の Web 設定（公開してよい値）
+  apiKey: "your-api-key"
+  authDomain: "your-project.firebaseapp.com"
+  projectId: "your-project"
+  appId: "your-app-id"
+
+mail:
+  from_name: CoderDojo 奈良
+  smtp_host: smtp.gmail.com
+  smtp_port: 465
+  confirmation: true                # 申込受付メールを送るか
+  reminder_hour: 18                 # 前日の何時（日本時間）以降にリマインドを送るか
+
+retention_days: 30                  # 開催日から何日後に申込データを削除するか

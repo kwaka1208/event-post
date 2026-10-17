@@ -1,0 +1,201 @@
+---
+import type { GetStaticPaths } from 'astro';
+import { render } from 'astro:content';
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { getPublishedEvents, type EventEntry } from '@/lib/events';
+import { formatFullDate, formatMonthDay, formatTime } from '@/lib/time';
+import { url } from '@/lib/url';
+
+export const getStaticPaths = (async () => {
+  const events = await getPublishedEvents();
+  return events.map((event) => ({ params: { id: event.id }, props: { event } }));
+}) satisfies GetStaticPaths;
+
+interface Props {
+  event: EventEntry;
+}
+
+const { event } = Astro.props;
+const { data, times } = event;
+const { Content } = await render(event);
+---
+
+<BaseLayout title={data.title}>
+  <main class="main">
+    <a href={url()} class="back">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+      イベント一覧
+    </a>
+
+    <section class="heading">
+      <div class="date">{formatFullDate(times.startAt)}</div>
+      <h1>{data.title}</h1>
+    </section>
+
+    <section class="info" aria-label="開催情報">
+      <dl>
+        <div class="row">
+          <dt>日時</dt>
+          <dd>{formatMonthDay(times.startAt)}{formatTime(times.startAt)}–{formatTime(times.endAt)}</dd>
+        </div>
+        <div class="row">
+          <dt>会場</dt>
+          <dd class="venue">
+            <span>{data.venue}</span>
+            {data.address && <span class="sub">{data.address}</span>}
+          </dd>
+        </div>
+        <div class="row">
+          <dt>定員</dt>
+          <dd>{data.capacity === null ? '定員なし' : `${data.capacity}名`}</dd>
+        </div>
+        <div class="row">
+          <dt>締切</dt>
+          <dd>
+            {formatMonthDay(times.deadlineAt)}{formatTime(times.deadlineAt)}
+            {!data.deadline && <span class="sub">（開始時刻まで）</span>}
+          </dd>
+        </div>
+      </dl>
+    </section>
+
+    <!-- 申込パネル。ログイン・申込・キャンセルの処理はステップ 4 で実装する -->
+    <section
+      class="panel"
+      aria-label="申込"
+      aria-busy="true"
+      data-apply-panel
+      data-event-id={event.id}
+      data-capacity={data.capacity ?? ''}
+      data-start-at={times.startAt.toISOString()}
+      data-end-at={times.endAt.toISOString()}
+      data-deadline-at={times.deadlineAt.toISOString()}
+    >
+      <div class="skeleton" style="width: 40%"></div>
+      <div class="skeleton" style="height: 8px"></div>
+      <div class="skeleton" style="width: 80%"></div>
+      <div class="skeleton" style="height: 52px"></div>
+    </section>
+
+    <article class="content">
+      <Content />
+    </article>
+  </main>
+</BaseLayout>
+
+<style>
+  .main {
+    width: 100%;
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 16px 20px 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    align-self: flex-start;
+    min-height: 44px;
+    font-size: 14px;
+    text-decoration: none;
+  }
+  .heading {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .date {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  h1 {
+    margin: 0;
+    font-family: var(--font-heading);
+    font-size: 24px;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+  }
+  .info {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    padding: 6px 16px;
+  }
+  dl {
+    margin: 0;
+  }
+  .row {
+    display: flex;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--divider);
+  }
+  .row:last-child {
+    border-bottom: none;
+  }
+  dt {
+    flex: 0 0 56px;
+    font-size: 13px;
+    color: var(--text-sub);
+  }
+  dd {
+    margin: 0;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .venue {
+    display: flex;
+    flex-direction: column;
+  }
+  .sub {
+    font-size: 13px;
+    color: var(--text-sub);
+  }
+  .panel {
+    background: var(--card);
+    border: 2px solid var(--accent);
+    border-radius: var(--radius-card);
+    padding: 18px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .skeleton {
+    height: 16px;
+    border-radius: 6px;
+    background: var(--disabled-bg);
+  }
+
+  /* 本文は Markdown から描画されるため :global で当てる */
+  .content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow-wrap: anywhere;
+  }
+  .content :global(h2) {
+    margin: 12px 0 0;
+    font-size: 18px;
+  }
+  .content :global(h3) {
+    margin: 8px 0 0;
+    font-size: 16px;
+  }
+  .content :global(p),
+  .content :global(ul),
+  .content :global(ol) {
+    margin: 0;
+  }
+  .content :global(ul),
+  .content :global(ol) {
+    padding-left: 1.3em;
+  }
+  .content :global(img) {
+    max-width: 100%;
+    height: auto;
+  }
+</style>

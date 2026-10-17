@@ -1,0 +1,73 @@
+/* デザイントークンと基礎のスタイルだけを置く。部品のスタイルは各コンポーネントに書く */
+:root {
+  --accent: #0f6e8c; /* config の theme.accent で上書きする */
+  --accent-light: color-mix(in srgb, var(--accent) 12%, #fff);
+  --accent-hover: color-mix(in srgb, var(--accent) 80%, #000);
+
+  --bg: #f4f6f8;
+  --card: #ffffff;
+  --border: #e2e6ea;
+  --divider: #eef1f4;
+  --text: #1b2430;
+  --text-sub: #4a5562;
+
+  --few-bg: #fcebdd;
+  --few-text: #8f3a08;
+  --disabled-bg: #e6e9ed;
+  --disabled-text: #3a4552;
+  --success: #2e7d4f;
+  --danger: #b42318;
+  --danger-bg: #fdecea;
+
+  --radius-card: 14px;
+  --radius-button: 12px;
+
+  --font-heading: 'Zen Maru Gothic', sans-serif;
+  --font-body: 'Zen Kaku Gothic New', sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.75;
+}
+
+a {
+  color: var(--accent);
+}
+a:hover {
+  color: var(--accent-hover);
+}
+
+:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 60%, #fff);
+  outline-offset: 2px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}

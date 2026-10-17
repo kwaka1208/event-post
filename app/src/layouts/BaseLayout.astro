@@ -1,0 +1,117 @@
+---
+import '@/styles/global.css';
+import Logo from '@/components/Logo.astro';
+import { loadConfig } from '@/lib/config';
+import { url } from '@/lib/url';
+import { EVENTPOST } from '@/consts';
+
+interface Props {
+  /** ページ固有のタイトル。省略時はグループ名だけ */
+  title?: string;
+  description?: string;
+  noindex?: boolean;
+}
+
+const config = loadConfig();
+const { title, description = config.group.description, noindex = false } = Astro.props;
+const pageTitle = title ? `${title} | ${config.group.name}` : config.group.name;
+const canonical = Astro.site ? new URL(Astro.url.pathname, Astro.site).href : undefined;
+---
+
+<!doctype html>
+<html lang="ja" style={`--accent: ${config.theme.accent}`}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{pageTitle}</title>
+    {description && <meta name="description" content={description} />}
+    {canonical && <link rel="canonical" href={canonical} />}
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={config.group.name} />
+    {description && <meta property="og:description" content={description} />}
+    {canonical && <meta property="og:url" content={canonical} />}
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Zen+Maru+Gothic:wght@700&display=swap"
+    />
+    <slot name="head" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="inner">
+        <a href={url()} class="brand">
+          <Logo />
+          <span class="brand-name">{config.group.name}</span>
+        </a>
+        <slot name="header-extra" />
+      </div>
+    </header>
+
+    <slot />
+
+    <footer class="site-footer">
+      <div class="inner">
+        <div>
+          お問い合わせ：<a href={`mailto:${config.group.contact_email}`}>{config.group.contact_email}</a>
+        </div>
+        <div>© {config.group.name}</div>
+        <div class="powered">
+          Powered by <a href={EVENTPOST.url}>{EVENTPOST.name}</a>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>
+
+<style>
+  .site-header {
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+  }
+  .site-header .inner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 20px;
+  }
+  .inner {
+    width: 100%;
+    max-width: 640px;
+    margin: 0 auto;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 44px;
+    color: var(--text);
+    text-decoration: none;
+    min-width: 0;
+  }
+  .brand-name {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 17px;
+    overflow-wrap: anywhere;
+  }
+  .site-footer {
+    margin-top: auto;
+    background: var(--card);
+    border-top: 1px solid var(--border);
+  }
+  .site-footer .inner {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 20px;
+    font-size: 13px;
+    color: var(--text-sub);
+  }
+  .powered {
+    font-size: 12px;
+  }
+</style>

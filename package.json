@@ -1,0 +1,28 @@
+{
+  "name": "eventpost",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "EventPost — GitHub Pages + Actions で運用するイベント管理サイト",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "cd app && astro dev",
+    "build": "cd app && astro build",
+    "preview": "cd app && astro preview",
+    "check": "cd app && astro check",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "astro": "^7.4.0",
+    "yaml": "^2.9.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "@types/node": "^22.20.5",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.5"
+  }
+}

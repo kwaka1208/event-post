@@ -1,0 +1,32 @@
+---
+// 残席バッジ。ビルド時は定員だけを出し、残席数は Firestore の count を読んでブラウザで差し替える（ステップ 4）
+interface Props {
+  eventId: string;
+  capacity: number | null;
+}
+const { eventId, capacity } = Astro.props;
+---
+
+<span class="badge" data-seat-badge={eventId} data-capacity={capacity ?? ''}>
+  {capacity === null ? '定員なし' : `定員 ${capacity} 名`}
+</span>
+
+<style>
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    background: var(--accent-light);
+    color: var(--accent);
+  }
+  .badge[data-state='few'] {
+    background: var(--few-bg);
+    color: var(--few-text);
+  }
+  .badge[data-state='full'] {
+    background: var(--disabled-bg);
+    color: var(--disabled-text);
+  }
+</style>

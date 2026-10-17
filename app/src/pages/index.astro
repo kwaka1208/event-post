@@ -1,0 +1,141 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import EventCard from '@/components/EventCard.astro';
+import { loadConfig } from '@/lib/config';
+import { getPublishedEvents } from '@/lib/events';
+import { formatMonthDay } from '@/lib/time';
+import { url } from '@/lib/url';
+
+const config = loadConfig();
+const events = await getPublishedEvents();
+const now = Date.now();
+const isPast = (e: (typeof events)[number]) => e.times.endAt.getTime() <= now;
+
+// サイトはデプロイ時にしか再生成されないため、ビルド後に終了したイベントはブラウザ側で「過去」に移す。
+// そのために、すべてのイベントをカードと過去の行の両方で出力し、片方を hidden にしておく。
+const pastOrder = [...events].reverse();
+---
+
+<BaseLayout>
+  <main class="main">
+    <section class="intro">
+      <h1>イベント</h1>
+      <p>
+        {config.group.description}参加にはGoogleアカウントでのログインが必要です。
+      </p>
+    </section>
+
+    <section class="upcoming" aria-labelledby="upcoming-heading">
+      <h2 id="upcoming-heading">これからのイベント</h2>
+      {events.map((e) => <EventCard event={e} hidden={isPast(e)} />)}
+      <p class="empty" data-upcoming-empty hidden={events.some((e) => !isPast(e))}>
+        いまは予定されているイベントはありません。
+      </p>
+    </section>
+
+    <section class="past" aria-labelledby="past-heading" data-past-section hidden={!events.some(isPast)}>
+      <h2 id="past-heading">過去のイベント</h2>
+      <ul>
+        {
+          pastOrder.map((e) => (
+            <li data-past-item={e.id} hidden={!isPast(e)}>
+              <a href={url(`events/${e.id}/`)}>
+                <span class="past-date">{formatMonthDay(e.times.startAt)}</span>
+                <span>{e.data.title}</span>
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </section>
+  </main>
+</BaseLayout>
+
+<script>
+  // ビルド後に終了したイベントを「過去のイベント」へ移す
+  const now = Date.now();
+  let upcoming = 0;
+  let past = 0;
+  for (const card of document.querySelectorAll<HTMLElement>('[data-upcoming-item]')) {
+    const ended = new Date(card.dataset.endAt!).getTime() <= now;
+    card.hidden = ended;
+    const id = card.querySelector<HTMLElement>('[data-seat-badge]')?.dataset.seatBadge;
+    const row = document.querySelector<HTMLElement>(`[data-past-item="${id}"]`);
+    if (row) row.hidden = !ended;
+    if (ended) past++;
+    else upcoming++;
+  }
+  document.querySelector<HTMLElement>('[data-upcoming-empty]')!.hidden = upcoming > 0;
+  document.querySelector<HTMLElement>('[data-past-section]')!.hidden = past === 0;
+</script>
+
+<style>
+  .main {
+    width: 100%;
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 28px 20px 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+  }
+  .intro {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  h1 {
+    margin: 0;
+    font-family: var(--font-heading);
+    font-size: 26px;
+    line-height: 1.4;
+  }
+  .intro p {
+    margin: 0;
+    color: var(--text-sub);
+    font-size: 14px;
+  }
+  h2 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .upcoming {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .empty {
+    margin: 0;
+    color: var(--text-sub);
+    font-size: 14px;
+  }
+  [hidden] {
+    display: none !important;
+  }
+  .past h2 {
+    margin-bottom: 8px;
+  }
+  .past ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .past a {
+    display: flex;
+    gap: 14px;
+    align-items: baseline;
+    min-height: 44px;
+    padding: 10px 2px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-sub);
+    font-size: 14px;
+    text-decoration: none;
+  }
+  .past a:hover {
+    color: var(--text);
+  }
+  .past-date {
+    flex: 0 0 92px;
+  }
+</style>

@@ -1,0 +1,54 @@
+---
+// グループのロゴ。theme.logo が未指定ならアクセント色の角丸四角に頭文字を出す
+import type { ImageMetadata } from 'astro';
+import { Image } from 'astro:assets';
+import { loadConfig } from '@/lib/config';
+
+const config = loadConfig();
+const images = import.meta.glob<{ default: ImageMetadata }>(
+  '../../../site/assets/**/*.{png,jpg,jpeg,webp,avif,gif,svg}',
+  { eager: true },
+);
+
+let logo: ImageMetadata | undefined;
+if (config.theme.logo) {
+  const key = `../../../site/${config.theme.logo.replace(/^\.?\//, '')}`;
+  logo = images[key]?.default;
+  if (!logo) {
+    throw new Error(
+      `theme.logo に指定した画像「${config.theme.logo}」が見つかりません。site/assets/ に置き、assets/logo.png のように書いてください`,
+    );
+  }
+}
+const initial = Array.from(config.group.name.trim())[0] ?? '';
+---
+
+{
+  logo ? (
+    <Image src={logo} alt="" width={36} height={36} class="logo" />
+  ) : (
+    <span class="logo logo-initial" aria-hidden="true">
+      {initial}
+    </span>
+  )
+}
+
+<style>
+  .logo {
+    width: 36px;
+    height: 36px;
+    flex: 0 0 36px;
+    border-radius: 10px;
+    object-fit: contain;
+  }
+  .logo-initial {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent);
+    color: #fff;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 17px;
+  }
+</style>

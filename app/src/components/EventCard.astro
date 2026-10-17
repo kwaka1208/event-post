@@ -1,0 +1,91 @@
+---
+import SeatBadge from './SeatBadge.astro';
+import type { EventEntry } from '@/lib/events';
+import { formatTime, jstParts } from '@/lib/time';
+import { url } from '@/lib/url';
+
+interface Props {
+  event: EventEntry;
+  hidden?: boolean;
+}
+const { event, hidden = false } = Astro.props;
+const { data, times } = event;
+const d = jstParts(times.startAt);
+---
+
+<a
+  href={url(`events/${event.id}/`)}
+  class="card"
+  data-upcoming-item
+  data-end-at={times.endAt.toISOString()}
+  hidden={hidden}
+>
+  <span class="date" aria-hidden="true">
+    <span class="date-sm">{d.month}月</span>
+    <span class="date-day">{d.day}</span>
+    <span class="date-sm">{d.weekday}</span>
+  </span>
+  <span class="body">
+    <span class="title">{data.title}</span>
+    <span class="visually-hidden">{d.month}月{d.day}日（{d.weekday}）</span>
+    <span class="meta">{formatTime(times.startAt)}–{formatTime(times.endAt)}・{data.venue}</span>
+    <span><SeatBadge eventId={event.id} capacity={data.capacity} /></span>
+  </span>
+</a>
+
+<style>
+  .card {
+    display: flex;
+    gap: 14px;
+    padding: 14px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    color: var(--text);
+    text-decoration: none;
+  }
+  .card:hover {
+    color: var(--text);
+    border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  }
+  .card[hidden] {
+    display: none;
+  }
+  .date {
+    flex: 0 0 64px;
+    height: 76px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    background: var(--accent);
+    color: #fff;
+    line-height: 1.15;
+  }
+  .date-sm {
+    font-size: 12px;
+  }
+  .date-day {
+    font-family: var(--font-heading);
+    font-size: 26px;
+    font-weight: 700;
+  }
+  .body {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .title {
+    font-weight: 700;
+    font-size: 16px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+  .meta {
+    font-size: 13px;
+    color: var(--text-sub);
+  }
+</style>
