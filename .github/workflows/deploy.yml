@@ -1,0 +1,76 @@
+# main への push で、Firestore（ルール・インデックス・イベントの写し）を更新してから GitHub Pages に公開する。
+# 同期をページ公開より先に行い、新しいイベントのページが出た時点で Firestore 側が準備済みであるようにする。
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: config.yml とイベントを検証
+        run: npm run validate
+
+      - name: Firebase のプロジェクト ID を読む
+        id: config
+        run: |
+          node --input-type=module -e "
+            import { readFileSync } from 'node:fs';
+            import { parse } from 'yaml';
+            console.log('project_id=' + parse(readFileSync('site/config.yml', 'utf8')).firebase.projectId);
+          " >> "$GITHUB_OUTPUT"
+
+      # サービスアカウントの JSON から Application Default Credentials を作る（firebase-tools と Admin SDK が使う）
+      - uses: google-github-actions/auth@v3
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      - name: Firestore のルールとインデックスをデプロイ
+        run: npx firebase deploy --only firestore --config firebase/firebase.json --project "${{ steps.config.outputs.project_id }}" --non-interactive
+
+      - name: イベントと管理者を Firestore に同期
+        run: npm run sync
+
+      - name: GitHub Pages の設定を読む
+        id: pages
+        uses: actions/configure-pages@v6
+
+      - name: サイトをビルド
+        run: npm run build
+        env:
+          PAGES_BASE_URL: ${{ steps.pages.outputs.base_url }}
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: app/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

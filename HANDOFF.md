@@ -445,8 +445,12 @@ Functions を使わないため、不正や定員超過はすべてルールで�
 |---|---|---|
 | 1 | Astro 7 の骨組み、config / Frontmatter の検証、一覧・詳細ページ、サンプル 2 件、単体テスト | `b6ee601` |
 | 2 | Firestore ルールとエミュレーターでのテスト（36 件） | `c9ca8a2` |
+| — | リポジトリ名・パッケージ名を `event-post` に統一（表示名は EventPost のまま） | `aaf55de` |
+| 3 | `sync-firestore.ts`（単体 7 件・エミュレーター 4 件のテスト）、`deploy.yml`、`ci.yml` | `fdcc999` ほか |
 
-次は **ステップ 3（`sync-firestore.ts` と `deploy.yml`）**。各ステップは「計画を提示 → 確認 → 実装 → 動作確認 → コミット」で進める。
+次は **ステップ 4（詳細ページのログイン・申込・キャンセル）**。各ステップは「計画を提示 → 確認 → 実装 → 動作確認 → コミット」で進める。
+
+ワークフローは手元で動かせないため、YAML の構文までしか確認していない。初回の push で Deploy と CI が通るかを GitHub 上で確認すること。
 
 ### この仕様書から変えたこと・決めたこと
 - Astro は **v7 系**（実装時 7.4.0）。Zod 4、Node 22.12 以上
@@ -456,21 +460,39 @@ Functions を使わないため、不正や定員超過はすべてルールで�
 - 回答は 1000 文字、名前は 100 文字まで（`MAX_ANSWER_LENGTH` / `MAX_NAME_LENGTH`）
 - 一覧ページは、ビルド後に終了したイベントをブラウザ側の小さな script で「過去のイベント」に移す（サイトは push 時しか再生成されないため）
 - テンプレートリポジトリは https://github.com/kwaka1208/event-post（フッターのリンク先、`app/src/consts.ts`）
+- リポジトリ名・パッケージ名は `event-post`。エミュレーターのプロジェクト ID は `demo-event-post`。環境変数 `EVENTPOST_SITE_DIR` と定数 `EVENTPOST` は識別子なのでハイフンなしのまま
+- `sync-firestore.ts --dry-run`（`npm run validate`）は Firestore に接続せず、検証と書き込む内容の表示だけを行う。deploy の検証ステップと CI で使う
+- Actions の認証は `google-github-actions/auth` で `FIREBASE_SERVICE_ACCOUNT` から ADC を作り、firebase-tools と Admin SDK の両方がそれを使う
+- 同期のテストは `tests/sync/` に置き、`npm run test:rules` で一緒に実行する（同じエミュレーターを使うため）
 
 ### 主なファイル
 - `app/src/lib/schema.ts`：config.yml とイベントの zod スキーマ（scripts/ からも使う。Astro 固有の import をしない）
 - `app/src/lib/config.ts`：`loadConfig()` / `siteDir()`（環境変数 `EVENTPOST_SITE_DIR`、既定は `cwd/site`）
 - `app/src/lib/event.ts`：`eventTimes()`（startAt / endAt / deadlineAt）、`assertEventId()`
 - `app/src/lib/time.ts`：JST の日時ユーティリティ
+- `scripts/lib/load-site.ts`：`site/events/*.md` の読み込みと検証（`loadEvents()`、誤りは全件まとめて出す）
+- `scripts/lib/sync.ts`：`toEventDoc()` / `normalizeAdmins()` / `syncFirestore()`
+- `scripts/sync-firestore.ts`：同期の入口（`--dry-run` あり）
 - 詳細ページの申込パネル（`[data-apply-panel]`）と残席バッジ（`[data-seat-badge]`）は、ステップ 4 で中身を実装する前提の data 属性付きの枠だけある
 
 ### コマンド
 - `npm run dev` / `npm run build` / `npm run check` / `npm test`（単体テスト）
-- `npm run test:rules`（ルールのテスト）：Java が必要。手元では `export PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH` してから実行する
+- `npm run validate`（config とイベントの検証のみ）/ `npm run sync`（Firestore に同期。認証情報が必要）
+- `npm run test:rules`（ルールと同期のテスト）：Java が必要。手元では `export PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH` してから実行する
 
-### ステップ 3 でやること・注意点
-- `sync-firestore.ts`：`count` は新規作成時のみ 0、既存はそれ以外をマージ。消えたイベントは `archived: true`。`config/admins` は **メールアドレスを小文字にそろえて** 上書き（ルールの判定が完全一致のため）
-- `fieldIds` を必ず書く（ルールの `hasOnly(event.fieldIds)` が前提にしている）
-- `deploy.yml` で `PAGES_BASE_URL`（configure-pages の `base_url`）を Astro のビルドに渡す（`astro.config.ts` が読む）
-- PR / push でテストを回す CI。ルールのテストには `actions/setup-java`
-- サービスアカウントの最小ロールを最新ドキュメントで確認する（14 章）
+### サービスアカウントのロール（ステップ 3 で調査）
+firebase-tools 15.34 のソース（`lib/deploy/index.js`、`lib/deploy/firestore/prepare.js`）と公式ドキュメントから、次の 4 つで足りる見込み。**初回の実デプロイで確認し、README（ステップ 7）に書くこと。** 足りない場合は、権限エラーに出る permission 名から追加するロールを決める。
+
+| ロール | 用途 |
+|---|---|
+| Firebase Rules Admin（`roles/firebaserules.admin`） | ルールのデプロイ |
+| Cloud Datastore Index Admin（`roles/datastore.indexAdmin`） | インデックスのデプロイ（`datastore.indexes.*`、DB の存在確認） |
+| Cloud Datastore User（`roles/datastore.user`） | `sync-firestore.ts` と `notify.ts` の読み書き |
+| Service Usage Consumer（`roles/serviceusage.serviceUsageConsumer`） | firebase-tools が Firestore API の有効化を確認する（`serviceusage.services.get`） |
+
+- 注意：Firestore のデータベースがまだないと、`firebase deploy` が `nam5`（米国）に作ってしまう。README で「先に Firestore を作成する（リージョンは asia-northeast1 など）」と案内すること
+
+### ステップ 4 でやること・注意点
+- 申込パネル（`[data-apply-panel]`）と残席バッジ（`[data-seat-badge]`）の中身を実装する。状態の一覧は 8 章
+- ログインは `signInWithPopup`。申込・キャンセルはトランザクション（registration の作成・削除と `count` の ±1）
+- 名前は `MAX_NAME_LENGTH`、回答は `MAX_ANSWER_LENGTH` でクライアント側でも検証する（ルールと合わせる）
