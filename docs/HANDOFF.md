@@ -448,11 +448,12 @@ Functions を使わないため、不正や定員超過はすべてルールで�
 | — | リポジトリ名・パッケージ名を `event-post` に統一（表示名は EventPost のまま） | `aaf55de` |
 | 3 | `sync-firestore.ts`（単体 7 件・エミュレーター 4 件のテスト）、`deploy.yml`、`ci.yml` | `fdcc999` ほか |
 | 4 | 詳細ページのログイン・申込・キャンセル、一覧と詳細の残席表示、開発用の Auth エミュレーター | `cbd87b7` ほか |
-| 5 | 管理ページと CSV、管理者判定のメール小文字化 | （このコミット） |
+| 5 | 管理ページと CSV、管理者判定のメール小文字化 | `9bdf4b5` |
+| 6 | `notify.ts`（受付メール・リマインド・件数補正・削除、`--dry-run`）、`notify.yml`、キープアライブ | `2d636c7` ほか |
 
-次は **ステップ 6（`notify.ts` と `notify.yml`）**。各ステップは「計画を提示 → 確認 → 実装 → 動作確認 → コミット」で進める。
+次は **ステップ 7（README・UPDATING.md・サンプル）**。各ステップは「計画を提示 → 確認 → 実装 → 動作確認 → コミット」で進める。
 
-ワークフローは手元で動かせないため、YAML の構文までしか確認していない。初回の push で Deploy と CI が通るかを GitHub 上で確認すること。
+ワークフローは手元で動かせないため、YAML の構文までしか確認していない。初回の push で Deploy・CI・Notify が通るかを GitHub 上で確認すること。
 
 ### この仕様書から変えたこと・決めたこと
 - Astro は **v7 系**（実装時 7.4.0）。Zod 4、Node 22.12 以上
@@ -478,6 +479,15 @@ Functions を使わないため、不正や定員超過はすべてルールで�
 - CSV の列は「お名前・メールアドレス・追加項目（fields 順）・申込日時・受付メール送信日時・リマインド送信日時」。日時は `2026/10/17 14:02`（JST）。先頭が `= + - @ タブ CR` の文字列には `'` を付ける（数値はそのまま）
 - リマインドの時刻（開催前日の `reminder_hour` 時）と削除日（開催日の `retention_days` 日後の 0:00）は `time.ts` の `reminderAt()` / `retentionDate()`。notify.ts でも使う
 - `BaseLayout` に `wide`（ヘッダーとフッターを 1280px 幅にする）を追加。ヘッダーは狭い画面で折り返す
+- notify.ts は Firestore の `events` を順に見る。開始後は何も送らない（未送信の受付メールも送らず、記録もしない）。件数補正も開始前のイベントだけ
+- メールを送らないのはアーカイブ済み（Markdown から消した）イベントだけ。`published: false` にしたイベントでも、既存の申込には送る
+- 前日の `reminder_hour` 以降に申し込んだ人には、同じ回に受付メールとリマインドの 2 通が届く
+- 削除はアーカイブ済みのイベントも対象。`count` は実績として残す
+- 1 回の実行で 3 回続けて失敗したら送信をやめる（`MAX_CONSECUTIVE_FAILURES`）。失敗が 1 件でもあれば終了コード 1（ワークフローが失敗し、GitHub から通知が来る）
+- ログに申込者の名前・メールアドレスを出さない（公開リポジトリでは Actions のログも公開）。uid と件数だけを出し、エラーメッセージ中のメールアドレスは伏せる。dry run の文面見本は名前を「（申込者名）」にする
+- 差出人は `SMTP_USER` のアドレスで、表示名は `mail.from_name`（省略時はグループ名）。Reply-To は `group.contact_email`。ポート 465 は TLS、それ以外は STARTTLS
+- メール中のイベント URL は `app/src/lib/site-url.ts`（`astro.config.ts` と共通。`custom_domain` か `PAGES_BASE_URL`）
+- キープアライブは `notify.yml` の最後で `PUT .../actions/workflows/notify.yml/enable` を毎回呼ぶ。これで 60 日のカウントがリセットされるかは未確認。README には「無効化予告のメールが届いたら空コミットを push する」と書く
 
 ### 主なファイル
 - `app/src/lib/schema.ts`：config.yml とイベントの zod スキーマ（scripts/ からも使う。Astro 固有の import をしない）
@@ -495,10 +505,17 @@ Functions を使わないため、不正や定員超過はすべてルールで�
 - `app/src/lib/admin.ts`：管理ページの読み取り（`canReadAdmin()` / `getEventCounts()` / `listRegistrations()`）
 - `app/src/lib/csv.ts`：CSV の生成（BOM 付き UTF-8、エスケープ、CSV インジェクション対策）
 - `app/src/pages/admin/index.astro`：管理ページ
+- `app/src/lib/site-url.ts`：サイトの URL と base、イベントページの URL
+- `scripts/lib/firestore.ts`：Admin SDK の接続（ADC、エミュレーター）
+- `scripts/lib/mail.ts`：メールテンプレートの読み込みと差し込み
+- `scripts/lib/notify.ts`：`runNotify()`（送信・記録・件数補正・削除。送信関数を引数に取る）
+- `scripts/lib/smtp.ts`：nodemailer での送信
+- `scripts/notify.ts`：notify の入口（`--dry-run` あり）
 
 ### コマンド
 - `npm run dev` / `npm run build` / `npm run check` / `npm test`（単体テスト）
 - `npm run validate`（config とイベントの検証のみ）/ `npm run sync`（Firestore に同期。認証情報が必要）
+- `npm run notify -- --dry-run`（送る予定を表示。`PAGES_BASE_URL` が必要）/ `npm run notify`（送信。`SMTP_USER` / `SMTP_PASSWORD` も必要）
 - `npm run test:rules`（ルールと同期のテスト）：Java が必要。手元では `export PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH` してから実行する
 - 画面の動作確認：`npm run emulators`（Auth と Firestore）→ 別の端末で `FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 npm run sync` → `npm run dev`
   - `npm run test:rules` はエミュレーターのデータを消すので、画面を確認するなら sync し直す
@@ -525,18 +542,20 @@ firebase-tools 15.34 のソース（`lib/deploy/index.js`、`lib/deploy/firestor
 1. この仕様書の 2 章（決定事項）、8 章（画面）、15 章（このメモ）を読む。画面の見た目は Design キャンバス「イベント管理 画面デザイン」に合わせる
 2. 手元の状態を確認する。どれも通る状態で引き継いでいる
    ```sh
-   npm test               # 単体テスト（46 件）
+   npm test               # 単体テスト（59 件）
    npm run validate       # config.yml とイベントの検証
    npm run check          # 型チェック
    export PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH
-   npm run test:rules     # ルールと同期のテスト（49 件）
+   npm run test:rules     # ルール・同期・notify のテスト（62 件）
    ```
 3. 次のステップの計画を提示して確認を取ってから実装する
 
 未確認のまま残っていること：
 - Deploy と CI のワークフローを GitHub 上で一度も動かしていない（push 後に確認）
 - サービスアカウントのロール（上の表）は見込み。初回の実デプロイで確定させる
-- 60 日問題の再有効化 API がカウントをリセットするか（9 章、ステップ 6 で確認）
+- 60 日問題の再有効化 API がカウントをリセットするか（9 章）。公式の情報では確かめられなかった
+- 本物の Gmail での送信は未確認。手元の偽の SMTP サーバーで、送信・記録・宛先拒否・再試行・終了コードを確かめた
+- `actions/configure-pages` に `pages: read` が要るか（`notify.yml` には付けた。`deploy.yml` の build ジョブは `contents: read` だけ）
 - 本物の Google ログイン（承認済みドメイン、`signInWithPopup`）は未確認。エミュレーターでしか試していない
 - ログイン失敗（`auth/popup-blocked`）の表示は、エミュレーターで再現できず画面では未確認
 
@@ -553,7 +572,10 @@ firebase-tools 15.34 のソース（`lib/deploy/index.js`、`lib/deploy/firestor
 - 申込者の表の列は、そのイベントの `fields` から作る。Frontmatter は詳細ページと同じくビルド時に埋め込む
 - CSV は BOM 付き UTF-8。値にカンマ・改行・ダブルクォートが入る場合のエスケープと、先頭が `=` `+` `-` `@` の値の扱い（CSV インジェクション対策）に注意する
 
-### ステップ 6：`notify.ts` と `notify.yml`
+### ステップ 6：`notify.ts` と `notify.yml`（完了）
+エミュレーターのテスト 13 件（`tests/sync/notify.test.ts`）と、偽の SMTP サーバーでの手動確認（送信・ヘッダー・宛先拒否で終了コード 1・2 回目は未送信分だけ）を行った。
+
+当初のメモ：
 - 読み込みは `scripts/lib/load-site.ts`、Admin SDK の初期化は `scripts/sync-firestore.ts` と同じ形（ADC、`config.firebase.projectId`）。共通化するなら `scripts/lib/` に切り出す
 - 送信済みの判定は `confirmationSentAt` / `remindedAt` だけで行う（13 章の将来の拡張のため）
 - JST の「明日」「`reminder_hour` 以降」の判定は `app/src/lib/time.ts` に足し、単体テストを書く
@@ -563,6 +585,9 @@ firebase-tools 15.34 のソース（`lib/deploy/index.js`、`lib/deploy/firestor
 
 ### ステップ 7：README・UPDATING.md・サンプル
 - 上の「サービスアカウントのロール」の表を README に移す（実デプロイで確かめた内容にする）
+- 60 日問題：GitHub から「ワークフローが無効になります」というメールが届いたら、空コミット（`git commit --allow-empty`）を push するよう書く
+- 動作確認の手順：Actions → Notify → Run workflow（dry_run にチェック）でログを見る
+- 開発者向け：`npm run test:rules` には Java（21 以上）が要る
 - Firestore のデータベースは先に日本のリージョンで作るよう案内する（作らずにデプロイすると `nam5` に作られる）
 - UPDATING.md：`site/` 以外を差し替える手順。`package.json` の依存が変わったときは `npm install` し直すことも書く
 - サンプルイベントは `site/events/` に 2 件ある（未来と過去）。内容を README の説明と合わせる

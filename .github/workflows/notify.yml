@@ -1,0 +1,61 @@
+# 毎時、受付メールとリマインドを送り、件数の補正と古い申込データの削除を行う（scripts/notify.ts）。
+# 手動実行で dry_run を選ぶと、送信も書き込みもせず、送る予定の内容をログに出す。
+name: Notify
+
+on:
+  schedule:
+    - cron: '17 * * * *' # 毎時 17 分（0 分は混みあって遅れやすい）
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 送信も書き込みもせず、予定だけをログに出す
+        type: boolean
+        default: true
+
+# 前の回が終わる前に次の回が始まると、同じ申込に二重に送るおそれがある
+concurrency:
+  group: notify
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pages: read # configure-pages
+      actions: write # キープアライブ（下記）
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - uses: google-github-actions/auth@v3
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      # メール中のイベントページの URL に使う
+      - name: GitHub Pages の設定を読む
+        id: pages
+        uses: actions/configure-pages@v6
+
+      - name: メールを送る
+        run: npm run notify -- ${{ inputs.dry_run && '--dry-run' || '' }}
+        env:
+          PAGES_BASE_URL: ${{ steps.pages.outputs.base_url }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+
+      # 公開リポジトリで 60 日間コミットがないと、schedule のワークフローは自動で無効になる。
+      # イベントが空く期間にリマインドが黙って止まらないよう、毎回ワークフロー自身を有効にし直す。
+      # （この API で無効化までの期間がリセットされるかは未確認。無効化予告のメールが届いたら空コミットを push する）
+      - name: キープアライブ
+        if: ${{ !cancelled() }}
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/notify.yml/enable"
+        env:
+          GH_TOKEN: ${{ github.token }}
