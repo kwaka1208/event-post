@@ -1,6 +1,7 @@
 ---
 import type { GetStaticPaths } from 'astro';
 import { render } from 'astro:content';
+import ApplyPanel from '@/components/ApplyPanel.astro';
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { getPublishedEvents, type EventEntry } from '@/lib/events';
 import { formatFullDate, formatMonthDay, formatTime } from '@/lib/time';
@@ -59,23 +60,7 @@ const { Content } = await render(event);
       </dl>
     </section>
 
-    <!-- 申込パネル。ログイン・申込・キャンセルの処理はステップ 4 で実装する -->
-    <section
-      class="panel"
-      aria-label="申込"
-      aria-busy="true"
-      data-apply-panel
-      data-event-id={event.id}
-      data-capacity={data.capacity ?? ''}
-      data-start-at={times.startAt.toISOString()}
-      data-end-at={times.endAt.toISOString()}
-      data-deadline-at={times.deadlineAt.toISOString()}
-    >
-      <div class="skeleton" style="width: 40%"></div>
-      <div class="skeleton" style="height: 8px"></div>
-      <div class="skeleton" style="width: 80%"></div>
-      <div class="skeleton" style="height: 52px"></div>
-    </section>
+    <ApplyPanel eventId={event.id} data={data} times={times} />
 
     <article class="content">
       <Content />
@@ -155,21 +140,6 @@ const { Content } = await render(event);
     font-size: 13px;
     color: var(--text-sub);
   }
-  .panel {
-    background: var(--card);
-    border: 2px solid var(--accent);
-    border-radius: var(--radius-card);
-    padding: 18px 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-  }
-  .skeleton {
-    height: 16px;
-    border-radius: 6px;
-    background: var(--disabled-bg);
-  }
-
   /* 本文は Markdown から描画されるため :global で当てる */
   .content {
     display: flex;

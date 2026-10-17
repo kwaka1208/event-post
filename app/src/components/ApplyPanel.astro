@@ -1,0 +1,984 @@
+---
+// イベント詳細の申込パネル。状態（8 章の表）ごとの中身を <template> で持ち、script で差し替える。
+// 申込・キャンセルの書き込みは src/lib/apply.ts、入力の検証は src/lib/answers.ts。
+import { loadConfig } from '@/lib/config';
+import type { EventTimes } from '@/lib/event';
+import { MAX_ANSWER_LENGTH, MAX_NAME_LENGTH, type EventData } from '@/lib/schema';
+import { url } from '@/lib/url';
+
+interface Props {
+  eventId: string;
+  data: EventData;
+  times: EventTimes;
+}
+
+const { eventId, data, times } = Astro.props;
+const config = loadConfig();
+const retention = `申込データは開催の${config.retention_days}日後に削除します。`;
+
+const alertIcon = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4"></path><path d="M12 16h.01"></path></svg>`;
+---
+
+<section
+  class="panel"
+  aria-label="申込"
+  aria-busy="true"
+  tabindex="-1"
+  data-apply-panel
+  data-state="loading"
+  data-variant="accent"
+  data-event-id={eventId}
+  data-start-at={times.startAt.toISOString()}
+  data-end-at={times.endAt.toISOString()}
+  data-deadline-at={times.deadlineAt.toISOString()}
+  data-reminder-hour={config.mail.reminder_hour}
+  data-confirmation={String(config.mail.confirmation)}
+  data-retention={retention}
+>
+  <div class="skeleton" style="width: 40%; height: 18px"></div>
+  <div class="skeleton" style="height: 8px; border-radius: 999px"></div>
+  <div class="skeleton" style="height: 52px; border-radius: 12px"></div>
+  <noscript><p class="text">申し込むには、ブラウザの JavaScript を有効にしてください。</p></noscript>
+</section>
+
+<script type="application/json" id="apply-fields" set:html={JSON.stringify(data.fields)} />
+
+<!-- 未ログイン -->
+<template data-panel-state="guest" data-variant="accent">
+  <div class="seats" data-seats>
+    <div class="seats-head">
+      <span class="seats-label" data-slot="seats-label"></span>
+      <span class="sub" data-slot="seats-count"></span>
+    </div>
+    <div class="bar" aria-hidden="true"><div class="bar-fill" data-slot="seats-bar"></div></div>
+  </div>
+  <p class="text">
+    <span data-unlimited hidden>定員はありません。</span>申し込むには、Googleアカウントでのログインが必要です。
+  </p>
+  <button type="button" class="button-primary" data-action="login">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><path d="M10 17l5-5-5-5"></path><path d="M15 12H3"></path></svg>
+    Googleでログインして申し込む
+  </button>
+  <p class="note">申し込むと、お名前とメールアドレスが主催者に共有されます。{retention}</p>
+</template>
+
+<!-- ログイン済み・未申込 -->
+<template data-panel-state="form" data-variant="accent">
+  <div class="account">
+    <span class="avatar" aria-hidden="true" data-slot="initial"></span>
+    <span class="account-body">
+      <span class="account-label">ログイン中</span>
+      <span class="account-email" data-slot="email"></span>
+    </span>
+    <button type="button" class="button-text" data-action="logout">ログアウト</button>
+  </div>
+
+  <h2 class="title" tabindex="-1" data-focus>申込フォーム</h2>
+
+  <form class="form" novalidate data-apply-form>
+    <div class="field">
+      <label for="apply-name" class="label">お名前 <span class="tag tag-required">必須</span></label>
+      <input
+        id="apply-name"
+        name="name"
+        type="text"
+        class="input"
+        autocomplete="name"
+        maxlength={MAX_NAME_LENGTH}
+        aria-describedby="apply-name-help apply-error-name"
+      />
+      <span id="apply-name-help" class="help">Googleアカウントの名前が入っています。必要なら参加者のお名前に変えてください。</span>
+      <p id="apply-error-name" class="field-error" data-field-error="name" hidden></p>
+    </div>
+
+    {
+      data.fields.map((f) => {
+        const id = `apply-field-${f.id}`;
+        const errorId = `apply-error-${f.id}`;
+        return (
+          <div class="field">
+            <label for={id} class="label">
+              {f.label}
+              <span class:list={['tag', f.required ? 'tag-required' : 'tag-optional']}>{f.required ? '必須' : '任意'}</span>
+            </label>
+            {f.type === 'textarea' ? (
+              <textarea id={id} name={f.id} rows="3" class="input textarea" maxlength={MAX_ANSWER_LENGTH} aria-describedby={errorId} />
+            ) : f.type === 'select' ? (
+              <select id={id} name={f.id} class="input" aria-describedby={errorId}>
+                <option value="">選んでください</option>
+                {f.options!.map((o) => (
+                  <option value={o}>{o}</option>
+                ))}
+              </select>
+            ) : (
+              <input
+                id={id}
+                name={f.id}
+                type="text"
+                class="input"
+                inputmode={f.type === 'number' ? 'decimal' : undefined}
+                maxlength={MAX_ANSWER_LENGTH}
+                aria-describedby={errorId}
+              />
+            )}
+            <p id={errorId} class="field-error" data-field-error={f.id} hidden />
+          </div>
+        );
+      })
+    }
+
+    <div class="alert alert-danger" role="alert" data-form-error hidden>
+      <Fragment set:html={alertIcon} /><span data-slot="form-error"></span>
+    </div>
+
+    <div class="submit">
+      <button type="submit" class="button-primary" data-submit>この内容で申し込む</button>
+      <p class="note" data-slot="form-note"></p>
+    </div>
+  </form>
+</template>
+
+<!-- 申込済み -->
+<template data-panel-state="done" data-variant="success">
+  <div class="done-head">
+    <span class="check" aria-hidden="true">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>
+    </span>
+    <h2 class="title" tabindex="-1" data-focus>申し込みました</h2>
+  </div>
+  <p class="text" data-slot="done-message"></p>
+  <dl class="summary" data-slot="summary"></dl>
+
+  <div class="alert alert-danger" role="alert" data-cancel-error hidden>
+    <Fragment set:html={alertIcon} /><span data-slot="cancel-error"></span>
+  </div>
+
+  <div class="cancel" data-cancel-area>
+    <button type="button" class="button-danger-outline" data-action="open-cancel">申込をキャンセルする</button>
+    <span class="note center" data-slot="cancel-note"></span>
+  </div>
+  <p class="note" data-cancel-closed hidden>開始時刻を過ぎたため、キャンセルはできません。</p>
+
+  <div class="account account-bottom">
+    <span class="account-body">
+      <span class="account-label">ログイン中</span>
+      <span class="account-email" data-slot="email"></span>
+    </span>
+    <button type="button" class="button-text" data-action="logout">ログアウト</button>
+  </div>
+</template>
+
+<template data-summary-row>
+  <div class="summary-row"><dt></dt><dd></dd></div>
+</template>
+
+<!-- キャンセル後 -->
+<template data-panel-state="cancelled" data-variant="plain">
+  <h2 class="title" tabindex="-1" data-focus>キャンセルしました</h2>
+  <p class="text">申込を取り消しました。席が空いていれば、もう一度申し込めます。</p>
+  <button type="button" class="button-primary" data-action="reapply">もう一度申し込む</button>
+</template>
+
+<!-- 満席 -->
+<template data-panel-state="full" data-variant="plain">
+  <div class="seats-head">
+    <span class="badge-full">満席</span>
+    <span class="sub" data-slot="seats-count"></span>
+  </div>
+  <p class="text" tabindex="-1" data-focus>定員に達したため、受付を終了しました。</p>
+  <button type="button" class="button-primary" disabled>満席です</button>
+</template>
+
+<!-- 締切後 -->
+<template data-panel-state="closed" data-variant="plain">
+  <h2 class="title-sm" tabindex="-1" data-focus>受付を締め切りました</h2>
+  <p class="text" data-slot="closed-message"></p>
+</template>
+
+<!-- 開催後 -->
+<template data-panel-state="ended" data-variant="plain">
+  <h2 class="title-sm">このイベントは終了しました</h2>
+  <a href={url()} class="link">これからのイベントを見る</a>
+</template>
+
+<!-- ログイン失敗 -->
+<template data-panel-state="login-error" data-variant="plain">
+  <div class="alert alert-danger" role="alert" tabindex="-1" data-focus>
+    <Fragment set:html={alertIcon} /><span data-slot="message"></span>
+  </div>
+  <button type="button" class="button-primary" data-action="login">もう一度ログインする</button>
+</template>
+
+<!-- 申込中に満席 -->
+<template data-panel-state="full-during-apply" data-variant="plain">
+  <div class="alert alert-warning" role="alert" tabindex="-1" data-focus>
+    <Fragment set:html={alertIcon} /><span>申し込もうとしている間に満席になりました。申込は完了していません。</span>
+  </div>
+  <a href={url()} class="link">ほかのイベントを見る</a>
+</template>
+
+<!-- 読み込みの失敗など -->
+<template data-panel-state="error" data-variant="plain">
+  <div class="alert alert-danger" role="alert" tabindex="-1" data-focus>
+    <Fragment set:html={alertIcon} /><span data-slot="message"></span>
+  </div>
+  <button type="button" class="button-secondary" data-action="reload">再読み込みする</button>
+</template>
+
+<dialog class="dialog" aria-labelledby="cancel-title" data-cancel-dialog>
+  <h2 id="cancel-title" class="title">申込をキャンセルしますか？</h2>
+  <p class="dialog-text">キャンセルすると席が空き、ほかの人が申し込めるようになります。</p>
+  <div class="dialog-actions">
+    <button type="button" class="button-secondary" autofocus data-action="close-cancel">やめる</button>
+    <button type="button" class="button-danger" data-action="confirm-cancel">キャンセルする</button>
+  </div>
+</dialog>
+
+<script>
+  import { FirebaseError } from 'firebase/app';
+  import { onAuthStateChanged, signInWithPopup, signOut, type User } from 'firebase/auth';
+  import { buildRegistration } from '@/lib/answers';
+  import {
+    applyForEvent,
+    cancelRegistration,
+    diagnoseApplyFailure,
+    getEvent,
+    getRegistration,
+    type EventDoc,
+    type Registration,
+  } from '@/lib/apply';
+  import { auth, db, googleProvider } from '@/lib/firebase';
+  import type { EventField } from '@/lib/schema';
+  import { seatStatus } from '@/lib/seats';
+  import { formatMonthDay, formatTime, jstDateString } from '@/lib/time';
+
+  type PanelState =
+    | 'guest'
+    | 'form'
+    | 'done'
+    | 'cancelled'
+    | 'full'
+    | 'closed'
+    | 'ended'
+    | 'login-error'
+    | 'full-during-apply'
+    | 'error';
+
+  const panel = document.querySelector<HTMLElement>('[data-apply-panel]')!;
+  const dialog = document.querySelector<HTMLDialogElement>('[data-cancel-dialog]')!;
+  const fields: EventField[] = JSON.parse(document.getElementById('apply-fields')!.textContent!);
+
+  const eventId = panel.dataset.eventId!;
+  const startAt = new Date(panel.dataset.startAt!);
+  const endAt = new Date(panel.dataset.endAt!);
+  const deadlineAt = new Date(panel.dataset.deadlineAt!);
+  const reminderHour = Number(panel.dataset.reminderHour);
+  const sendsConfirmation = panel.dataset.confirmation === 'true';
+  const retention = panel.dataset.retention!;
+
+  let user: User | null = null;
+  let event: EventDoc | null = null;
+  let registration: Registration | null = null;
+
+  // ---------------------------------------------------------------------------
+  // 描画
+  // ---------------------------------------------------------------------------
+
+  /** 状態のテンプレートでパネルの中身を差し替える。focus はユーザー操作の結果として切り替わったときに true */
+  function show(state: PanelState, focus = false): void {
+    const tpl = document.querySelector<HTMLTemplateElement>(`template[data-panel-state="${state}"]`)!;
+    panel.replaceChildren(tpl.content.cloneNode(true));
+    panel.dataset.state = state;
+    panel.dataset.variant = tpl.dataset.variant ?? 'plain';
+    panel.setAttribute('aria-busy', 'false');
+    if (focus) (panel.querySelector<HTMLElement>('[data-focus]') ?? panel).focus();
+  }
+
+  function slot(name: string): HTMLElement {
+    return panel.querySelector<HTMLElement>(`[data-slot="${name}"]`)!;
+  }
+
+  function fillAll(name: string, text: string): void {
+    for (const el of panel.querySelectorAll<HTMLElement>(`[data-slot="${name}"]`)) el.textContent = text;
+  }
+
+  function formatDateTime(d: Date): string {
+    return `${formatMonthDay(d)}${formatTime(d)}`;
+  }
+
+  /** 今の状態を判定して描画する */
+  function render(focus = false): void {
+    const now = Date.now();
+    if (now >= endAt.getTime()) return show('ended', focus);
+    if (!event) return showError('申込の受付を準備中です。しばらくしてから再読み込みしてください。', focus);
+    if (registration) return renderDone(focus);
+    if (now >= deadlineAt.getTime() || !event.published || event.archived) return renderClosed(focus);
+    if (seatStatus(event.capacity, event.count).state === 'full') return renderFull(focus);
+    return user ? renderForm(focus) : renderGuest(focus);
+  }
+
+  function renderGuest(focus: boolean): void {
+    show('guest', focus);
+    const seats = seatStatus(event!.capacity, event!.count);
+    if (seats.state === 'unlimited') {
+      panel.querySelector<HTMLElement>('[data-seats]')!.hidden = true;
+      panel.querySelector<HTMLElement>('[data-unlimited]')!.hidden = false;
+    } else {
+      slot('seats-label').textContent = seats.label;
+      slot('seats-count').textContent = `${event!.count} / ${event!.capacity} 名`;
+      slot('seats-bar').style.width = `${Math.min((event!.count / event!.capacity!) * 100, 100)}%`;
+    }
+    bindLogin();
+  }
+
+  function renderFull(focus: boolean): void {
+    show('full', focus);
+    slot('seats-count').textContent = `${event!.count} / ${event!.capacity} 名`;
+  }
+
+  function renderClosed(focus: boolean): void {
+    show('closed', focus);
+    slot('closed-message').textContent =
+      `申込は${formatDateTime(deadlineAt)}で締め切りました。お問い合わせは主催者までご連絡ください。`;
+  }
+
+  function showError(message: string, focus = false): void {
+    show('error', focus);
+    slot('message').textContent = message;
+    panel.querySelector('[data-action="reload"]')!.addEventListener('click', () => location.reload());
+  }
+
+  function showLoginError(message: string): void {
+    show('login-error', true);
+    slot('message').textContent = message;
+    bindLogin();
+  }
+
+  function fillAccount(): void {
+    const u = user!;
+    fillAll('email', u.email ?? '');
+    const initial = panel.querySelector<HTMLElement>('[data-slot="initial"]');
+    if (initial) initial.textContent = (u.displayName || u.email || '?').trim().charAt(0).toUpperCase();
+    for (const btn of panel.querySelectorAll('[data-action="logout"]')) {
+      btn.addEventListener('click', () => {
+        pendingFocus = true;
+        signOut(auth).catch((e) => console.error(e));
+      });
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // ログイン
+  // ---------------------------------------------------------------------------
+
+  function bindLogin(): void {
+    const btn = panel.querySelector<HTMLButtonElement>('[data-action="login"]')!;
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      try {
+        pendingFocus = true;
+        await signInWithPopup(auth, googleProvider);
+        // 続きは onAuthStateChanged で描画する
+      } catch (e) {
+        pendingFocus = false;
+        const code = e instanceof FirebaseError ? e.code : '';
+        if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+          // 自分でポップアップを閉じた場合は、エラーにせず元に戻す
+          render(true);
+        } else if (code === 'auth/popup-blocked') {
+          showLoginError('ログインできませんでした。ポップアップがブロックされていないか確認して、もう一度お試しください。');
+        } else {
+          console.error(e);
+          showLoginError('ログインできませんでした。時間をおいて、もう一度お試しください。');
+        }
+      }
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // 申込フォーム
+  // ---------------------------------------------------------------------------
+
+  function renderForm(focus: boolean): void {
+    show('form', focus);
+    fillAccount();
+    const u = user!;
+    const form = panel.querySelector<HTMLFormElement>('[data-apply-form]')!;
+    const nameInput = form.querySelector<HTMLInputElement>('#apply-name')!;
+    nameInput.value = u.displayName ?? '';
+    slot('form-note').textContent = (sendsConfirmation ? `受付メールは ${u.email} に届きます。` : '') + retention;
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      void submitForm(form);
+    });
+  }
+
+  function setFieldErrors(form: HTMLFormElement, errors: Record<string, string>): void {
+    let first: HTMLElement | null = null;
+    for (const p of form.querySelectorAll<HTMLElement>('[data-field-error]')) {
+      const key = p.dataset.fieldError!;
+      const input = form.elements.namedItem(key) as HTMLElement | null;
+      const message = errors[key];
+      p.textContent = message ?? '';
+      p.hidden = !message;
+      if (input) {
+        if (message) input.setAttribute('aria-invalid', 'true');
+        else input.removeAttribute('aria-invalid');
+      }
+      if (message && input && !first) first = input;
+    }
+    first?.focus();
+  }
+
+  function setFormError(form: HTMLFormElement, message: string | null): void {
+    const box = form.querySelector<HTMLElement>('[data-form-error]')!;
+    box.hidden = message === null;
+    slot('form-error').textContent = message ?? '';
+  }
+
+  async function submitForm(form: HTMLFormElement): Promise<void> {
+    const u = user!;
+    setFormError(form, null);
+    const values: Record<string, string> = {};
+    for (const f of fields) {
+      values[f.id] = (form.elements.namedItem(f.id) as HTMLInputElement | null)?.value ?? '';
+    }
+    const result = buildRegistration(fields, {
+      name: (form.elements.namedItem('name') as HTMLInputElement).value,
+      values,
+    });
+    if (!result.ok) {
+      setFieldErrors(form, result.errors);
+      return;
+    }
+    setFieldErrors(form, {});
+    if (!u.email) {
+      setFormError(form, 'Googleアカウントのメールアドレスを確認できませんでした。別のアカウントでお試しください。');
+      return;
+    }
+
+    const submit = form.querySelector<HTMLButtonElement>('[data-submit]')!;
+    submit.disabled = true;
+    submit.textContent = '申し込んでいます…';
+    try {
+      await applyForEvent(db, eventId, { uid: u.uid, email: u.email }, result.name, result.answers);
+      registration = { uid: u.uid, name: result.name, email: u.email, answers: result.answers, createdAt: null };
+      event = { ...event!, count: event!.count + 1 };
+      renderDone(true);
+    } catch (e) {
+      console.error(e);
+      if (e instanceof FirebaseError && e.code === 'permission-denied') {
+        await handleApplyDenied(form);
+      } else {
+        setFormError(form, '申し込めませんでした。通信状況を確認して、もう一度お試しください。');
+      }
+      submit.disabled = false;
+      submit.textContent = 'この内容で申し込む';
+    }
+  }
+
+  /** ルールに拒否されたとき、events と自分の申込を読み直して理由を出す */
+  async function handleApplyDenied(form: HTMLFormElement): Promise<void> {
+    try {
+      registration = await getRegistration(db, eventId, user!.uid);
+      if (registration) return renderDone(true); // 別のタブなどで申込済み
+      event = (await getEvent(db, eventId)) ?? event;
+    } catch (e) {
+      console.error(e);
+    }
+    const reason = diagnoseApplyFailure(event, new Date());
+    if (reason === 'full') return show('full-during-apply', true);
+    if (reason === 'closed') return renderClosed(true);
+    setFormError(form, '申し込めませんでした。ページを再読み込みして、もう一度お試しください。');
+  }
+
+  // ---------------------------------------------------------------------------
+  // 申込済み・キャンセル
+  // ---------------------------------------------------------------------------
+
+  function renderDone(focus: boolean): void {
+    show('done', focus);
+    fillAccount();
+    const reg = registration!;
+    const now = new Date();
+
+    const messages: string[] = [];
+    if (sendsConfirmation) messages.push(`受付メールは1時間ほどで ${reg.email} に届きます。`);
+    // 開催当日の申込にはリマインドを送らない（notify.ts）
+    if (jstDateString(now) < jstDateString(startAt)) {
+      messages.push(`開催前日の${reminderHour}時ごろにリマインドもお送りします。`);
+    }
+    const message = slot('done-message');
+    message.textContent = messages.join('');
+    message.hidden = messages.length === 0;
+
+    const rowTpl = document.querySelector<HTMLTemplateElement>('template[data-summary-row]')!;
+    const summary = slot('summary');
+    const rows: [string, string][] = [
+      ['お名前', reg.name],
+      ...fields.map((f): [string, string] => {
+        const v = reg.answers[f.id];
+        return [f.label, v === undefined || v === '' ? 'なし' : String(v)];
+      }),
+    ];
+    for (const [label, value] of rows) {
+      const row = rowTpl.content.cloneNode(true) as DocumentFragment;
+      row.querySelector('dt')!.textContent = label;
+      row.querySelector('dd')!.textContent = value;
+      summary.append(row);
+    }
+
+    const canCancel = now < startAt;
+    panel.querySelector<HTMLElement>('[data-cancel-area]')!.hidden = !canCancel;
+    panel.querySelector<HTMLElement>('[data-cancel-closed]')!.hidden = canCancel;
+    slot('cancel-note').textContent =
+      `キャンセルは開始時刻（${formatDateTime(startAt)}）までできます`;
+    panel.querySelector('[data-action="open-cancel"]')!.addEventListener('click', () => dialog.showModal());
+  }
+
+  function showCancelError(message: string): void {
+    const box = panel.querySelector<HTMLElement>('[data-cancel-error]');
+    if (!box) return;
+    box.hidden = false;
+    slot('cancel-error').textContent = message;
+  }
+
+  const confirmButton = dialog.querySelector<HTMLButtonElement>('[data-action="confirm-cancel"]')!;
+  dialog.querySelector('[data-action="close-cancel"]')!.addEventListener('click', () => dialog.close());
+  confirmButton.addEventListener('click', async () => {
+    confirmButton.disabled = true;
+    confirmButton.textContent = 'キャンセルしています…';
+    try {
+      await cancelRegistration(db, eventId, user!.uid);
+      registration = null;
+      event = { ...event!, count: Math.max(event!.count - 1, 0) };
+      dialog.close();
+      show('cancelled', true);
+      panel.querySelector('[data-action="reapply"]')!.addEventListener('click', () => render(true));
+    } catch (e) {
+      console.error(e);
+      dialog.close();
+      showCancelError(
+        e instanceof FirebaseError && e.code === 'permission-denied'
+          ? '開始時刻を過ぎたため、キャンセルできませんでした。'
+          : 'キャンセルできませんでした。通信状況を確認して、もう一度お試しください。',
+      );
+    } finally {
+      confirmButton.disabled = false;
+      confirmButton.textContent = 'キャンセルする';
+    }
+  });
+
+  // ---------------------------------------------------------------------------
+  // 初期化
+  // ---------------------------------------------------------------------------
+
+  /** ログイン・ログアウトの操作で状態が変わったときに、新しい中身へフォーカスを移す */
+  let pendingFocus = false;
+
+  if (Date.now() >= endAt.getTime()) {
+    show('ended');
+  } else {
+    const eventLoaded = getEvent(db, eventId)
+      .then((e) => {
+        event = e;
+      })
+      .catch((e) => console.error('イベントを読み込めませんでした', e));
+
+    onAuthStateChanged(auth, async (u) => {
+      user = u;
+      registration = null;
+      try {
+        if (u) registration = await getRegistration(db, eventId, u.uid);
+      } catch (e) {
+        console.error(e);
+        showError('申込の状況を読み込めませんでした。通信状況を確認して、再読み込みしてください。', pendingFocus);
+        pendingFocus = false;
+        return;
+      }
+      await eventLoaded;
+      render(pendingFocus);
+      pendingFocus = false;
+    });
+  }
+</script>
+
+<style>
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    padding: 18px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .panel[data-variant='accent'] {
+    border: 2px solid var(--accent);
+  }
+  .panel[data-variant='success'] {
+    border: 2px solid var(--success);
+  }
+  .panel:focus {
+    outline: none;
+  }
+  .skeleton {
+    border-radius: 6px;
+    background: var(--disabled-bg);
+  }
+  [hidden] {
+    display: none !important;
+  }
+
+  .title {
+    margin: 0;
+    font-size: 18px;
+  }
+  .title-sm {
+    margin: 0;
+    font-size: 16px;
+  }
+  .title:focus,
+  .title-sm:focus,
+  .text:focus,
+  .alert:focus {
+    outline: none;
+  }
+  .text {
+    margin: 0;
+    font-size: 14px;
+  }
+  .sub {
+    font-size: 13px;
+    color: var(--text-sub);
+  }
+  .note {
+    margin: 0;
+    font-size: 12px;
+    color: var(--text-sub);
+    line-height: 1.6;
+  }
+  .center {
+    text-align: center;
+  }
+  .link {
+    display: inline-flex;
+    align-items: center;
+    align-self: flex-start;
+    min-height: 44px;
+    font-size: 14px;
+  }
+
+  /* 残席 */
+  .seats {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .seats-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+  }
+  .seats-label {
+    font-weight: 700;
+    font-size: 17px;
+  }
+  .bar {
+    height: 8px;
+    border-radius: 999px;
+    background: var(--disabled-bg);
+    overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%;
+    width: 0;
+    border-radius: 999px;
+    background: var(--accent);
+  }
+  .badge-full {
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    background: var(--disabled-bg);
+    color: var(--disabled-text);
+  }
+
+  /* ボタン */
+  .button-primary,
+  .button-secondary,
+  .button-danger,
+  .button-danger-outline {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 52px;
+    padding: 0 16px;
+    border-radius: var(--radius-button);
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .button-primary {
+    border: none;
+    background: var(--accent);
+    color: #fff;
+  }
+  .button-primary:hover:not(:disabled) {
+    background: var(--accent-hover);
+  }
+  .button-primary:disabled {
+    background: var(--disabled-bg);
+    color: var(--text-sub);
+    cursor: default;
+  }
+  .button-secondary {
+    min-height: 48px;
+    border: 1px solid #c7ced6;
+    background: #fff;
+    color: var(--text);
+    font-size: 15px;
+  }
+  .button-danger {
+    min-height: 48px;
+    border: none;
+    background: var(--danger);
+    color: #fff;
+    font-size: 15px;
+  }
+  .button-danger-outline {
+    min-height: 48px;
+    border: 1px solid var(--danger);
+    background: #fff;
+    color: var(--danger);
+    font-size: 15px;
+  }
+  .button-danger:disabled,
+  .button-secondary:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+  .button-text {
+    flex: 0 0 auto;
+    min-height: 44px;
+    padding: 0 8px;
+    border: none;
+    background: none;
+    color: var(--text-sub);
+    font-family: inherit;
+    font-size: 13px;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
+  /* ログイン中のアカウント */
+  .account {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--divider);
+  }
+  .account-bottom {
+    padding: 14px 0 0;
+    border-top: 1px solid var(--divider);
+    border-bottom: none;
+  }
+  .avatar {
+    flex: 0 0 40px;
+    height: 40px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--accent) 14%, #fff);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+  }
+  .account-body {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    line-height: 1.4;
+  }
+  .account-label {
+    font-size: 12px;
+    color: var(--text-sub);
+  }
+  .account-email {
+    font-size: 14px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* フォーム */
+  .form {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .tag {
+    padding: 0 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .tag-required {
+    background: var(--danger);
+    color: #fff;
+  }
+  .tag-optional {
+    background: var(--disabled-bg);
+    color: var(--disabled-text);
+  }
+  .input {
+    width: 100%;
+    min-height: 48px;
+    padding: 0 12px;
+    border: 1px solid #c7ced6;
+    border-radius: 10px;
+    background: #fff;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 16px; /* iOS の自動ズームを防ぐ */
+  }
+  .textarea {
+    padding: 10px 12px;
+    resize: vertical;
+  }
+  .input[aria-invalid='true'] {
+    border-color: var(--danger);
+  }
+  .help {
+    font-size: 12px;
+    color: var(--text-sub);
+  }
+  .field-error {
+    margin: 0;
+    font-size: 13px;
+    color: var(--danger);
+  }
+  .submit {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* お知らせ */
+  .alert {
+    display: flex;
+    gap: 10px;
+    padding: 12px;
+    border-radius: 10px;
+    font-size: 14px;
+  }
+  .alert :global(svg) {
+    flex: 0 0 20px;
+    margin-top: 3px;
+  }
+  .alert-danger {
+    background: var(--danger-bg);
+    color: #8a1c12;
+  }
+  .alert-warning {
+    background: var(--few-bg);
+    color: #7a3107;
+  }
+
+  /* 申込済み */
+  .done-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .check {
+    flex: 0 0 36px;
+    height: 36px;
+    border-radius: 999px;
+    background: var(--success);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .summary {
+    margin: 0;
+    padding: 4px 14px;
+    border-radius: 10px;
+    background: var(--bg);
+  }
+  .summary-row {
+    display: flex;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+  }
+  .summary-row:last-child {
+    border-bottom: none;
+  }
+  .summary-row dt {
+    flex: 0 0 72px;
+    color: var(--text-sub);
+  }
+  .summary-row dd {
+    margin: 0;
+    min-width: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .cancel {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  /* キャンセル確認 */
+  .dialog {
+    width: calc(100% - 40px);
+    max-width: 360px;
+    padding: 22px 18px;
+    border: none;
+    border-radius: 16px;
+    color: var(--text);
+  }
+  .dialog[open] {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .dialog::backdrop {
+    background: rgba(27, 36, 48, 0.55);
+  }
+  .dialog-text {
+    margin: 0;
+    font-size: 14px;
+    color: var(--disabled-text);
+  }
+  .dialog-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 6px;
+  }
+  .dialog-actions > * {
+    flex: 1 1 0;
+  }
+</style>

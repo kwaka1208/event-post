@@ -447,8 +447,9 @@ Functions を使わないため、不正や定員超過はすべてルールで�
 | 2 | Firestore ルールとエミュレーターでのテスト（36 件） | `c9ca8a2` |
 | — | リポジトリ名・パッケージ名を `event-post` に統一（表示名は EventPost のまま） | `aaf55de` |
 | 3 | `sync-firestore.ts`（単体 7 件・エミュレーター 4 件のテスト）、`deploy.yml`、`ci.yml` | `fdcc999` ほか |
+| 4 | 詳細ページのログイン・申込・キャンセル、一覧と詳細の残席表示、開発用の Auth エミュレーター | `cbd87b7` ほか |
 
-次は **ステップ 4（詳細ページのログイン・申込・キャンセル）**。各ステップは「計画を提示 → 確認 → 実装 → 動作確認 → コミット」で進める。
+次は **ステップ 5（管理ページと CSV）**。各ステップは「計画を提示 → 確認 → 実装 → 動作確認 → コミット」で進める。
 
 ワークフローは手元で動かせないため、YAML の構文までしか確認していない。初回の push で Deploy と CI が通るかを GitHub 上で確認すること。
 
@@ -464,6 +465,12 @@ Functions を使わないため、不正や定員超過はすべてルールで�
 - `sync-firestore.ts --dry-run`（`npm run validate`）は Firestore に接続せず、検証と書き込む内容の表示だけを行う。deploy の検証ステップと CI で使う
 - Actions の認証は `google-github-actions/auth` で `FIREBASE_SERVICE_ACCOUNT` から ADC を作り、firebase-tools と Admin SDK の両方がそれを使う
 - 同期のテストは `tests/sync/` に置き、`npm run test:rules` で一緒に実行する（同じエミュレーターを使うため）
+- 申込の `answers` では、**未入力の任意項目はキーごと省く**。`number` の項目は数値にする（`app/src/lib/answers.ts`）
+- Firebase の Web 設定は `astro.config.ts` の `vite.define`（`__FIREBASE_CONFIG__`）でクライアントに埋め込む
+- 開発サーバー（`import.meta.env.DEV`）では Auth・Firestore ともエミュレーターに接続し、プロジェクト ID は `demo-event-post`（`EMULATOR_PROJECT_ID`）。`sync-firestore.ts` も `FIRESTORE_EMULATOR_HOST` があればこの ID を使う
+- 申込パネルの状態は 8 章の表のとおり。状態ごとの中身を `ApplyPanel.astro` の `<template>` に持ち、script で差し替える。キャンセル確認は `<dialog>` の `showModal()`（フォーカスの閉じ込めと Esc はブラウザ標準）
+- ポップアップを自分で閉じた場合（`auth/popup-closed-by-user`）はエラーにせず元の表示に戻す
+- 申込済みの表示では、開催当日の申込にはリマインドの一文を出さない（ステップ 6 の notify.ts と合わせる）
 
 ### 主なファイル
 - `app/src/lib/schema.ts`：config.yml とイベントの zod スキーマ（scripts/ からも使う。Astro 固有の import をしない）
@@ -473,12 +480,24 @@ Functions を使わないため、不正や定員超過はすべてルールで�
 - `scripts/lib/load-site.ts`：`site/events/*.md` の読み込みと検証（`loadEvents()`、誤りは全件まとめて出す）
 - `scripts/lib/sync.ts`：`toEventDoc()` / `normalizeAdmins()` / `syncFirestore()`
 - `scripts/sync-firestore.ts`：同期の入口（`--dry-run` あり）
-- 詳細ページの申込パネル（`[data-apply-panel]`）と残席バッジ（`[data-seat-badge]`）は、ステップ 4 で中身を実装する前提の data 属性付きの枠だけある
+- `app/src/lib/firebase.ts`：ブラウザ側の Firebase 初期化（開発時はエミュレーター）
+- `app/src/lib/seats.ts`：残席の状態と文言（残り 3 席以下で `few`）
+- `app/src/lib/answers.ts`：申込フォームの検証と `answers` への変換
+- `app/src/lib/apply.ts`：申込・キャンセルのトランザクション、拒否されたときの理由の推定。`db` を引数に取るので `tests/rules/apply.test.ts` からも使う
+- `app/src/components/ApplyPanel.astro`：詳細ページの申込パネル
 
 ### コマンド
 - `npm run dev` / `npm run build` / `npm run check` / `npm test`（単体テスト）
 - `npm run validate`（config とイベントの検証のみ）/ `npm run sync`（Firestore に同期。認証情報が必要）
 - `npm run test:rules`（ルールと同期のテスト）：Java が必要。手元では `export PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH` してから実行する
+- 画面の動作確認：`npm run emulators`（Auth と Firestore）→ 別の端末で `FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 npm run sync` → `npm run dev`
+  - `npm run test:rules` はエミュレーターのデータを消すので、画面を確認するなら sync し直す
+  - Auth エミュレーターのログインはポップアップの別ウィンドウになり、ブラウザ拡張から操作できない。開発サーバーのページのコンソールで、同じモジュールを import して偽の ID トークンでログインできる（ID トークンの JSON は `sub`・`email`・`email_verified`・`name`）
+    ```js
+    const { auth } = await import('/src/lib/firebase.ts');
+    const A = await import('/node_modules/.vite/deps/firebase_auth.js?v=…'); // URL は performance.getEntriesByType('resource') で確認
+    await A.signInWithCredential(auth, A.GoogleAuthProvider.credential(JSON.stringify({ sub: 'u1', email: 'u1@example.com', email_verified: true, name: 'テスト' })));
+    ```
 
 ### サービスアカウントのロール（ステップ 3 で調査）
 firebase-tools 15.34 のソース（`lib/deploy/index.js`、`lib/deploy/firestore/prepare.js`）と公式ドキュメントから、次の 4 つで足りる見込み。**初回の実デプロイで確認し、README（ステップ 7）に書くこと。** 足りない場合は、権限エラーに出る permission 名から追加するロールを決める。
@@ -496,11 +515,11 @@ firebase-tools 15.34 のソース（`lib/deploy/index.js`、`lib/deploy/firestor
 1. この仕様書の 2 章（決定事項）、8 章（画面）、15 章（このメモ）を読む。画面の見た目は Design キャンバス「イベント管理 画面デザイン」に合わせる
 2. 手元の状態を確認する。どれも通る状態で引き継いでいる
    ```sh
-   npm test               # 単体テスト（25 件）
+   npm test               # 単体テスト（37 件）
    npm run validate       # config.yml とイベントの検証
    npm run check          # 型チェック
    export PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH
-   npm run test:rules     # ルールと同期のテスト（40 件）
+   npm run test:rules     # ルールと同期のテスト（47 件）
    ```
 3. 次のステップの計画を提示して確認を取ってから実装する
 
@@ -508,37 +527,11 @@ firebase-tools 15.34 のソース（`lib/deploy/index.js`、`lib/deploy/firestor
 - Deploy と CI のワークフローを GitHub 上で一度も動かしていない（push 後に確認）
 - サービスアカウントのロール（上の表）は見込み。初回の実デプロイで確定させる
 - 60 日問題の再有効化 API がカウントをリセットするか（9 章、ステップ 6 で確認）
+- 本物の Google ログイン（承認済みドメイン、`signInWithPopup`）は未確認。エミュレーターでしか試していない
+- ログイン失敗（`auth/popup-blocked`）の表示は、エミュレーターで再現できず画面では未確認
 
-### ステップ 4：詳細ページのログイン・申込・キャンセル
-
-**今ある枠**
-- `app/src/pages/events/[id].astro` の申込パネル `[data-apply-panel]`。中身はスケルトンだけで、`aria-busy="true"`。data 属性に `event-id`、`capacity`（空文字＝無制限）、`start-at` / `end-at` / `deadline-at`（ISO 文字列）を持つ
-- `app/src/components/SeatBadge.astro`：`[data-seat-badge={eventId}]`。ビルド時は「定員 N 名」を出す。`data-state` に `few` / `full` を入れると色が変わる CSS は用意済み
-- `app/src/pages/index.astro` の `<script>`：終了したイベントを「過去のイベント」に移す処理だけある。残席の差し替えはここに足す
-
-**追加するもの（案）**
-- `app/src/lib/firebase.ts`：config.yml の `firebase` をビルド時に埋め込んで `initializeApp`。ブラウザから読むので、`define:vars` か、ビルド時に JSON を `<script type="application/json">` で出す方法を選ぶ（`loadConfig()` は Node 専用なのでクライアントから直接 import しない）
-- 申込パネルの描画：8 章の状態表をそのまま状態として持ち、状態ごとに中身を差し替える。UI フレームワークは使わず `<script>`（TypeScript）で書く
-- 申込・キャンセル：`runTransaction` で書く
-  - 申込：events を読み、`count + 1` で update、`registrations/{uid}` を set
-  - キャンセル：registration を delete、`count - 1` で update
-- 残席の表示：一覧と詳細の両方で events の `count` を読み、バッジを差し替える（残り 3 席以下で `few`、0 で `full`）
-
-**ルールに合わせること**（`firebase/firestore.rules` の `validRegistration`）
-- registration のキーはちょうど `uid, name, email, answers, createdAt`。`createdAt` は `serverTimestamp()`、`email` は `user.email` をそのまま使う
-- `answers` には `fields` にある id だけを入れる。未入力の任意項目はキーごと省くか空文字にする（どちらにするか決めてテストに足す）。`number` の項目は数値に変換して送る
-- 名前は 1〜`MAX_NAME_LENGTH` 文字、回答は `MAX_ANSWER_LENGTH` 文字まで。クライアントでも同じ値で検証し、ルールで弾かれる前にエラーを出す
-- events の update で変えてよいのは `count` だけ
-- キャンセルは開始時刻まで。締切後でも開始前ならキャンセルできる（ルールがそうなっている）
-
-**失敗時の表示**
-- `signInWithPopup` が失敗したら「ログイン失敗」状態にする。`auth/popup-blocked` と `auth/popup-closed-by-user` を区別し、前者ではポップアップのブロックを確認するよう案内する
-- 申込のトランザクションが `permission-denied` で失敗したら、events を読み直す。満席なら「申込中に満席」、締切後なら「締切後」、それ以外は汎用のエラーを `role="alert"` で出す
-
-**動作確認**
-- `firebase/firebase.json` の emulators に `auth` を足す（今は firestore だけ）。開発時だけ `connectAuthEmulator` / `connectFirestoreEmulator` に切り替える（`import.meta.env.DEV` などで判定）
-- エミュレーターに events を入れるには、`FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 npm run sync` が使える
-- スマホ幅（390px）、キーボード操作、モーダルのフォーカス管理を確認する
+### ステップ 4：詳細ページのログイン・申込・キャンセル（完了）
+エミュレーターと開発サーバーで、次を画面で確かめた：未ログイン → ログイン → 必須項目のエラー → 申込 → 再読み込み後も申込済み → キャンセル確認（Esc で閉じるとフォーカスが戻る）→ キャンセル → もう一度申し込む、申込中に満席、満席、受付終了、開催後、ログアウト、390px 幅で横にはみ出さないこと。
 
 ### ステップ 5：管理ページと CSV
 - `app/src/pages/admin/index.astro` を新しく作る。`noindex` を付ける
