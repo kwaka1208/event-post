@@ -20,6 +20,8 @@ export default defineConfig({
   base,
   trailingSlash: 'ignore',
   vite: {
+    // Firebase の Web 設定（公開してよい値）をクライアントのコードに埋め込む。src/lib/firebase.ts で使う
+    define: { __FIREBASE_CONFIG__: JSON.stringify(config.firebase) },
     // site/ はプロジェクトルート（app/）の外にあるため、開発サーバーからの参照を許可する
     server: { fs: { allow: [repoRoot] } },
   },
