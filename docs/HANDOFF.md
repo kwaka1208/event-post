@@ -492,7 +492,71 @@ firebase-tools 15.34 のソース（`lib/deploy/index.js`、`lib/deploy/firestor
 
 - 注意：Firestore のデータベースがまだないと、`firebase deploy` が `nam5`（米国）に作ってしまう。README で「先に Firestore を作成する（リージョンは asia-northeast1 など）」と案内すること
 
-### ステップ 4 でやること・注意点
-- 申込パネル（`[data-apply-panel]`）と残席バッジ（`[data-seat-badge]`）の中身を実装する。状態の一覧は 8 章
-- ログインは `signInWithPopup`。申込・キャンセルはトランザクション（registration の作成・削除と `count` の ±1）
-- 名前は `MAX_NAME_LENGTH`、回答は `MAX_ANSWER_LENGTH` でクライアント側でも検証する（ルールと合わせる）
+### 次のセッションの始め方
+1. この仕様書の 2 章（決定事項）、8 章（画面）、15 章（このメモ）を読む。画面の見た目は Design キャンバス「イベント管理 画面デザイン」に合わせる
+2. 手元の状態を確認する。どれも通る状態で引き継いでいる
+   ```sh
+   npm test               # 単体テスト（25 件）
+   npm run validate       # config.yml とイベントの検証
+   npm run check          # 型チェック
+   export PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH
+   npm run test:rules     # ルールと同期のテスト（40 件）
+   ```
+3. 次のステップの計画を提示して確認を取ってから実装する
+
+未確認のまま残っていること：
+- Deploy と CI のワークフローを GitHub 上で一度も動かしていない（push 後に確認）
+- サービスアカウントのロール（上の表）は見込み。初回の実デプロイで確定させる
+- 60 日問題の再有効化 API がカウントをリセットするか（9 章、ステップ 6 で確認）
+
+### ステップ 4：詳細ページのログイン・申込・キャンセル
+
+**今ある枠**
+- `app/src/pages/events/[id].astro` の申込パネル `[data-apply-panel]`。中身はスケルトンだけで、`aria-busy="true"`。data 属性に `event-id`、`capacity`（空文字＝無制限）、`start-at` / `end-at` / `deadline-at`（ISO 文字列）を持つ
+- `app/src/components/SeatBadge.astro`：`[data-seat-badge={eventId}]`。ビルド時は「定員 N 名」を出す。`data-state` に `few` / `full` を入れると色が変わる CSS は用意済み
+- `app/src/pages/index.astro` の `<script>`：終了したイベントを「過去のイベント」に移す処理だけある。残席の差し替えはここに足す
+
+**追加するもの（案）**
+- `app/src/lib/firebase.ts`：config.yml の `firebase` をビルド時に埋め込んで `initializeApp`。ブラウザから読むので、`define:vars` か、ビルド時に JSON を `<script type="application/json">` で出す方法を選ぶ（`loadConfig()` は Node 専用なのでクライアントから直接 import しない）
+- 申込パネルの描画：8 章の状態表をそのまま状態として持ち、状態ごとに中身を差し替える。UI フレームワークは使わず `<script>`（TypeScript）で書く
+- 申込・キャンセル：`runTransaction` で書く
+  - 申込：events を読み、`count + 1` で update、`registrations/{uid}` を set
+  - キャンセル：registration を delete、`count - 1` で update
+- 残席の表示：一覧と詳細の両方で events の `count` を読み、バッジを差し替える（残り 3 席以下で `few`、0 で `full`）
+
+**ルールに合わせること**（`firebase/firestore.rules` の `validRegistration`）
+- registration のキーはちょうど `uid, name, email, answers, createdAt`。`createdAt` は `serverTimestamp()`、`email` は `user.email` をそのまま使う
+- `answers` には `fields` にある id だけを入れる。未入力の任意項目はキーごと省くか空文字にする（どちらにするか決めてテストに足す）。`number` の項目は数値に変換して送る
+- 名前は 1〜`MAX_NAME_LENGTH` 文字、回答は `MAX_ANSWER_LENGTH` 文字まで。クライアントでも同じ値で検証し、ルールで弾かれる前にエラーを出す
+- events の update で変えてよいのは `count` だけ
+- キャンセルは開始時刻まで。締切後でも開始前ならキャンセルできる（ルールがそうなっている）
+
+**失敗時の表示**
+- `signInWithPopup` が失敗したら「ログイン失敗」状態にする。`auth/popup-blocked` と `auth/popup-closed-by-user` を区別し、前者ではポップアップのブロックを確認するよう案内する
+- 申込のトランザクションが `permission-denied` で失敗したら、events を読み直す。満席なら「申込中に満席」、締切後なら「締切後」、それ以外は汎用のエラーを `role="alert"` で出す
+
+**動作確認**
+- `firebase/firebase.json` の emulators に `auth` を足す（今は firestore だけ）。開発時だけ `connectAuthEmulator` / `connectFirestoreEmulator` に切り替える（`import.meta.env.DEV` などで判定）
+- エミュレーターに events を入れるには、`FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 npm run sync` が使える
+- スマホ幅（390px）、キーボード操作、モーダルのフォーカス管理を確認する
+
+### ステップ 5：管理ページと CSV
+- `app/src/pages/admin/index.astro` を新しく作る。`noindex` を付ける
+- 管理者かどうかはルールに任せる。registrations の読み取りが `permission-denied` なら「権限がありません」と出す
+- ルールの管理者判定はメールアドレスの完全一致。`config/admins` は小文字で同期しているので、トークンのメールに大文字が混ざると弾かれる。必要ならルール側で `request.auth.token.email.lower()` を使い、テストを足す
+- 申込者の表の列は、そのイベントの `fields` から作る。Frontmatter は詳細ページと同じくビルド時に埋め込む
+- CSV は BOM 付き UTF-8。値にカンマ・改行・ダブルクォートが入る場合のエスケープと、先頭が `=` `+` `-` `@` の値の扱い（CSV インジェクション対策）に注意する
+
+### ステップ 6：`notify.ts` と `notify.yml`
+- 読み込みは `scripts/lib/load-site.ts`、Admin SDK の初期化は `scripts/sync-firestore.ts` と同じ形（ADC、`config.firebase.projectId`）。共通化するなら `scripts/lib/` に切り出す
+- 送信済みの判定は `confirmationSentAt` / `remindedAt` だけで行う（13 章の将来の拡張のため）
+- JST の「明日」「`reminder_hour` 以降」の判定は `app/src/lib/time.ts` に足し、単体テストを書く
+- メールのテンプレートは `site/templates/*.md`。Frontmatter の読み込みは `parseFrontmatter()` を使い回せる
+- `dry_run` のときは送信も書き込みもしない。最初は dry_run だけで作り、送信は後から足す
+- `notify.yml` は deploy.yml と同じ認証（`google-github-actions/auth`）に加えて、`SMTP_USER` / `SMTP_PASSWORD` を渡す。`concurrency` を必ず付ける
+
+### ステップ 7：README・UPDATING.md・サンプル
+- 上の「サービスアカウントのロール」の表を README に移す（実デプロイで確かめた内容にする）
+- Firestore のデータベースは先に日本のリージョンで作るよう案内する（作らずにデプロイすると `nam5` に作られる）
+- UPDATING.md：`site/` 以外を差し替える手順。`package.json` の依存が変わったときは `npm install` し直すことも書く
+- サンプルイベントは `site/events/` に 2 件ある（未来と過去）。内容を README の説明と合わせる
