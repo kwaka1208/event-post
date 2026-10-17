@@ -435,3 +435,42 @@ Functions を使わないため、不正や定員超過はすべてルールで�
 - サービスアカウントの最小ロール（11 章）
 - Astro・Firebase JS SDK・firebase-admin・firebase-tools の最新の安定版と、それに合わせた API の書き方
 - ルールの `getAfter()` / `existsAfter()` をトランザクションで使う際の挙動（テストで担保）
+
+---
+
+## 15. 進捗メモ（実装セッションの引き継ぎ）
+
+### 完了
+| ステップ | 内容 | コミット |
+|---|---|---|
+| 1 | Astro 7 の骨組み、config / Frontmatter の検証、一覧・詳細ページ、サンプル 2 件、単体テスト | `b6ee601` |
+| 2 | Firestore ルールとエミュレーターでのテスト（36 件） | `c9ca8a2` |
+
+次は **ステップ 3（`sync-firestore.ts` と `deploy.yml`）**。各ステップは「計画を提示 → 確認 → 実装 → 動作確認 → コミット」で進める。
+
+### この仕様書から変えたこと・決めたこと
+- Astro は **v7 系**（実装時 7.4.0）。Zod 4、Node 22.12 以上
+- npm scripts は `cd app && astro …` の形。`astro dev --root app` だと Astro 7.4 の dev サーバーが相対 `--root` を二重に解決して全ページ 404 になるため
+- TypeScript は **6 系**（`astro check` が 7 に未対応）
+- 追加項目（`fields`）は **最大 20 件**。ルールでマップの値を繰り返し検証できず、書き下しているため（`schema.ts` の `MAX_FIELDS` と `firestore.rules` の `validAnswerValues` を合わせる）
+- 回答は 1000 文字、名前は 100 文字まで（`MAX_ANSWER_LENGTH` / `MAX_NAME_LENGTH`）
+- 一覧ページは、ビルド後に終了したイベントをブラウザ側の小さな script で「過去のイベント」に移す（サイトは push 時しか再生成されないため）
+- テンプレートリポジトリは https://github.com/kwaka1208/event-post（フッターのリンク先、`app/src/consts.ts`）
+
+### 主なファイル
+- `app/src/lib/schema.ts`：config.yml とイベントの zod スキーマ（scripts/ からも使う。Astro 固有の import をしない）
+- `app/src/lib/config.ts`：`loadConfig()` / `siteDir()`（環境変数 `EVENTPOST_SITE_DIR`、既定は `cwd/site`）
+- `app/src/lib/event.ts`：`eventTimes()`（startAt / endAt / deadlineAt）、`assertEventId()`
+- `app/src/lib/time.ts`：JST の日時ユーティリティ
+- 詳細ページの申込パネル（`[data-apply-panel]`）と残席バッジ（`[data-seat-badge]`）は、ステップ 4 で中身を実装する前提の data 属性付きの枠だけある
+
+### コマンド
+- `npm run dev` / `npm run build` / `npm run check` / `npm test`（単体テスト）
+- `npm run test:rules`（ルールのテスト）：Java が必要。手元では `export PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH` してから実行する
+
+### ステップ 3 でやること・注意点
+- `sync-firestore.ts`：`count` は新規作成時のみ 0、既存はそれ以外をマージ。消えたイベントは `archived: true`。`config/admins` は **メールアドレスを小文字にそろえて** 上書き（ルールの判定が完全一致のため）
+- `fieldIds` を必ず書く（ルールの `hasOnly(event.fieldIds)` が前提にしている）
+- `deploy.yml` で `PAGES_BASE_URL`（configure-pages の `base_url`）を Astro のビルドに渡す（`astro.config.ts` が読む）
+- PR / push でテストを回す CI。ルールのテストには `actions/setup-java`
+- サービスアカウントの最小ロールを最新ドキュメントで確認する（14 章）
