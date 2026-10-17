@@ -3,6 +3,8 @@ import {
   formatDateTimeNumeric,
   formatFullDate,
   formatTime,
+  isPastRetention,
+  isReminderDue,
   jstDateString,
   jstDateTime,
   jstParts,
@@ -48,6 +50,37 @@ describe('リマインドと削除の日時', () => {
     expect(retentionDate(jstDateTime('2026-12-20', '23:30'), 30).toISOString()).toBe(
       jstDateTime('2027-01-19', '00:00').toISOString(),
     );
+  });
+
+  it('リマインドは前日の指定時刻から、開催日の 0:00（JST）の手前まで', () => {
+    const start = jstDateTime('2026-11-21', '13:00');
+    expect(isReminderDue(start, 18, jstDateTime('2026-11-20', '17:59'))).toBe(false);
+    expect(isReminderDue(start, 18, jstDateTime('2026-11-20', '18:00'))).toBe(true);
+    expect(isReminderDue(start, 18, jstDateTime('2026-11-20', '23:59'))).toBe(true);
+    // 開催当日（当日の申込や、前日に送り損ねた分）は送らない
+    expect(isReminderDue(start, 18, jstDateTime('2026-11-21', '00:00'))).toBe(false);
+    expect(isReminderDue(start, 18, jstDateTime('2026-11-21', '09:00'))).toBe(false);
+    // 2 日前は早すぎる
+    expect(isReminderDue(start, 18, jstDateTime('2026-11-19', '18:00'))).toBe(false);
+  });
+
+  it('リマインドの判定は UTC の日付の境目に左右されない', () => {
+    // JST 11/20 18:00 = UTC 11/20 09:00、JST 11/21 08:00 = UTC 11/20 23:00
+    const start = jstDateTime('2026-11-21', '10:00');
+    expect(isReminderDue(start, 18, new Date('2026-11-20T09:00:00Z'))).toBe(true);
+    expect(isReminderDue(start, 18, new Date('2026-11-20T23:00:00Z'))).toBe(false);
+  });
+
+  it('月初の開催なら前月末日の指定時刻から', () => {
+    const start = jstDateTime('2026-12-01', '10:00');
+    expect(isReminderDue(start, 0, jstDateTime('2026-11-30', '00:00'))).toBe(true);
+    expect(isReminderDue(start, 0, jstDateTime('2026-11-29', '23:59'))).toBe(false);
+  });
+
+  it('削除日を過ぎたかの判定', () => {
+    const start = jstDateTime('2026-11-21', '13:00');
+    expect(isPastRetention(start, 30, jstDateTime('2026-12-20', '23:59'))).toBe(false);
+    expect(isPastRetention(start, 30, jstDateTime('2026-12-21', '00:00'))).toBe(true);
   });
 
   it('数字だけの日時表記', () => {

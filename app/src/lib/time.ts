@@ -73,6 +73,19 @@ export function retentionDate(startAt: Date, days: number): Date {
   return addJstDays(startAt, days);
 }
 
+/**
+ * 今リマインドを送ってよいか：開催前日の hour 時（JST）以降で、まだ開催日（JST）になっていない。
+ * 開催当日に入ったら送らない（当日の申込や、前日に送り損ねた分も含む）。
+ */
+export function isReminderDue(startAt: Date, hour: number, now: Date): boolean {
+  return now >= reminderAt(startAt, hour) && now < addJstDays(startAt, 0);
+}
+
+/** 申込データの削除日を過ぎたか */
+export function isPastRetention(startAt: Date, days: number, now: Date): boolean {
+  return now >= retentionDate(startAt, days);
+}
+
 /** 2026/10/17 14:02（CSV と管理ページの表で使う） */
 export function formatDateTimeNumeric(d: Date): string {
   const p = jstParts(d);

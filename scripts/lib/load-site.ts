@@ -14,15 +14,20 @@ export interface SiteEvent {
 
 const FRONTMATTER = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
 
-/** Markdown の Frontmatter 部分を取り出して YAML として読む */
-export function parseFrontmatter(source: string, file: string): unknown {
+/** Markdown を Frontmatter（YAML として読んだもの）と本文に分ける */
+export function splitFrontmatter(source: string, file: string): { data: unknown; body: string } {
   const m = FRONTMATTER.exec(source);
   if (!m) throw new Error(`${file} の先頭に Frontmatter（--- で囲んだ部分）がありません`);
   try {
-    return parse(m[1]) ?? {};
+    return { data: parse(m[1]) ?? {}, body: source.slice(m[0].length) };
   } catch (e) {
     throw new Error(`${file} の Frontmatter を読み込めませんでした: ${(e as Error).message}`);
   }
+}
+
+/** Markdown の Frontmatter 部分を取り出して YAML として読む */
+export function parseFrontmatter(source: string, file: string): unknown {
+  return splitFrontmatter(source, file).data;
 }
 
 /** 1 ファイル分を検証する */
