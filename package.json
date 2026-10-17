@@ -12,12 +12,15 @@
     "build": "cd app && astro build",
     "preview": "cd app && astro preview",
     "check": "cd app && astro check",
+    "validate": "tsx scripts/sync-firestore.ts --dry-run",
+    "sync": "tsx scripts/sync-firestore.ts",
     "test": "vitest run",
     "test:rules": "firebase emulators:exec --config firebase/firebase.json --project demo-event-post --only firestore \"vitest run --config vitest.rules.config.ts\""
   },
   "dependencies": {
     "astro": "^7.4.0",
     "firebase": "^13.0.0",
+    "firebase-admin": "^14.5.0",
     "yaml": "^2.9.1",
     "zod": "^4.6.7"
   },
@@ -26,6 +29,7 @@
     "@firebase/rules-unit-testing": "^6.0.0",
     "@types/node": "^22.20.5",
     "firebase-tools": "^15.34.0",
+    "tsx": "^4.23.15",
     "typescript": "^6.0.3",
     "vitest": "^5.0.5"
   }
