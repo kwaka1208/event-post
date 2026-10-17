@@ -69,6 +69,31 @@ const pastOrder = [...events].reverse();
   document.querySelector<HTMLElement>('[data-past-section]')!.hidden = past === 0;
 </script>
 
+<script>
+  // 残席バッジを Firestore の count で差し替える。読めなかったときはビルド時の「定員 N 名」のまま
+  import { collection, getDocs } from 'firebase/firestore';
+  import { db } from '@/lib/firebase';
+  import { seatStatus } from '@/lib/seats';
+
+  const badges = document.querySelectorAll<HTMLElement>('[data-seat-badge]');
+  if (badges.length > 0) {
+    getDocs(collection(db, 'events'))
+      .then((snap) => {
+        const counts = new Map(snap.docs.map((d) => [d.id, Number(d.get('count') ?? 0)]));
+        for (const badge of badges) {
+          const count = counts.get(badge.dataset.seatBadge!);
+          if (count === undefined) continue;
+          const capacity = badge.dataset.capacity ? Number(badge.dataset.capacity) : null;
+          const status = seatStatus(capacity, count);
+          badge.textContent = status.label;
+          if (status.state === 'few' || status.state === 'full') badge.dataset.state = status.state;
+          else delete badge.dataset.state;
+        }
+      })
+      .catch((e) => console.warn('残席を読み込めませんでした', e));
+  }
+</script>
+
 <style>
   .main {
     width: 100%;

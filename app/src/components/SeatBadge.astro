@@ -1,5 +1,5 @@
 ---
-// 残席バッジ。ビルド時は定員だけを出し、残席数は Firestore の count を読んでブラウザで差し替える（ステップ 4）
+// 残席バッジ。ビルド時は定員だけを出し、残席数は Firestore の count を読んでブラウザで差し替える（index.astro の script）
 interface Props {
   eventId: string;
   capacity: number | null;
