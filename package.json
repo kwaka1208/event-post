@@ -1,5 +1,5 @@
 {
-  "name": "eventpost",
+  "name": "event-post",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -13,7 +13,7 @@
     "preview": "cd app && astro preview",
     "check": "cd app && astro check",
     "test": "vitest run",
-    "test:rules": "firebase emulators:exec --config firebase/firebase.json --project demo-eventpost --only firestore \"vitest run --config vitest.rules.config.ts\""
+    "test:rules": "firebase emulators:exec --config firebase/firebase.json --project demo-event-post --only firestore \"vitest run --config vitest.rules.config.ts\""
   },
   "dependencies": {
     "astro": "^7.4.0",

@@ -17,7 +17,7 @@ Claude Code で実装するための仕様書です。設計上の決定事項�
 ### 名前
 
 - ツール名：**EventPost**（イベントを掲示＝post して、申込を受け付ける道具）
-- リポジトリ名・パッケージ名：`eventpost`
+- リポジトリ名・パッケージ名：`event-post`
 - README の冒頭、サイトのフッター（「Powered by EventPost」とテンプレートへのリンク）、`package.json` の `name` にこの名前を使う
 - 画面上のグループ名はあくまで config の `group.name`。ツール名を前面に出しすぎない
 

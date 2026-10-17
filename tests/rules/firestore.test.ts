@@ -20,7 +20,7 @@ import {
   type Firestore,
 } from 'firebase/firestore';
 
-const PROJECT_ID = 'demo-eventpost';
+const PROJECT_ID = 'demo-event-post';
 const ADMIN_EMAIL = 'organizer@example.org';
 const HOUR = 60 * 60 * 1000;
 
