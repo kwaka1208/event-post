@@ -323,7 +323,7 @@ reminder_note: |
 
 Notify は毎回、自分自身を有効にし直す処理をしていますが、これで止められずに済むかは確かめられていません。GitHub から「ワークフローが無効になります」というメールが届いたら、空のコミットを push してください。
 
-```sh
+```bash
 git commit --allow-empty -m "Keep workflows active"
 git push
 ```
@@ -357,7 +357,7 @@ GitHub の画面だけで済ませたい場合は、README などに 1 行足し
 
 Node.js 22.12 以上が必要です。
 
-```sh
+```bash
 npm install
 npm run dev        # 開発サーバー（Auth・Firestore はエミュレーターにつなぐ）
 npm run build      # サイトをビルド（app/dist）
@@ -368,13 +368,13 @@ npm run validate   # config.yml とイベントの検証だけ行う
 
 ルールと同期・Notify のテストは Firestore エミュレーターを使うため、Java 21 以上が必要です。
 
-```sh
+```bash
 npm run test:rules
 ```
 
 画面をエミュレーターで動かすには、端末を 3 つ使います。
 
-```sh
+```bash
 npm run emulators                                    # 1. Auth と Firestore のエミュレーター
 FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 npm run sync  # 2. イベントをエミュレーターに同期
 npm run dev                                          # 3. 開発サーバー
@@ -384,7 +384,7 @@ npm run dev                                          # 3. 開発サーバー
 
 Notify を手元で試すときは、`PAGES_BASE_URL`（例：`https://example.github.io/events/`）が必要です。
 
-```sh
+```bash
 FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 PAGES_BASE_URL=https://example.github.io/events/ npm run notify -- --dry-run
 ```
 

@@ -450,8 +450,9 @@ Functions を使わないため、不正や定員超過はすべてルールで�
 | 4 | 詳細ページのログイン・申込・キャンセル、一覧と詳細の残席表示、開発用の Auth エミュレーター | `cbd87b7` ほか |
 | 5 | 管理ページと CSV、管理者判定のメール小文字化 | `9bdf4b5` |
 | 6 | `notify.ts`（受付メール・リマインド・件数補正・削除、`--dry-run`）、`notify.yml`、キープアライブ | `2d636c7` ほか |
+| 7 | README（セットアップ手順・サイト画面のスクリーンショット）、UPDATING.md | `9480c77` ほか |
 
-次は **ステップ 7（README・UPDATING.md・サンプル）**。各ステップは「計画を提示 → 確認 → 実装 → 動作確認 → コミット」で進める。
+12 章の実装の順序（ステップ 1〜7）はすべて完了した。次は **GitHub 上での実地確認**（下の「次のセッションの始め方」）。作業は引き続き「計画を提示 → 確認 → 実装 → 動作確認 → コミット」で進める。
 
 ワークフローは手元で動かせないため、YAML の構文までしか確認していない。初回の push で Deploy・CI・Notify が通るかを GitHub 上で確認すること。
 
@@ -487,6 +488,10 @@ Functions を使わないため、不正や定員超過はすべてルールで�
 - ログに申込者の名前・メールアドレスを出さない（公開リポジトリでは Actions のログも公開）。uid と件数だけを出し、エラーメッセージ中のメールアドレスは伏せる。dry run の文面見本は名前を「（申込者名）」にする
 - 差出人は `SMTP_USER` のアドレスで、表示名は `mail.from_name`（省略時はグループ名）。Reply-To は `group.contact_email`。ポート 465 は TLS、それ以外は STARTTLS
 - メール中のイベント URL は `app/src/lib/site-url.ts`（`astro.config.ts` と共通。`custom_domain` か `PAGES_BASE_URL`）
+- README と UPDATING.md のコマンドは **bash 前提**（Codespaces の端末は bash。macOS の zsh では先に `bash` と入力するよう案内）。UPDATING.md は本体のパスを変数 `CORE` にまとめ、`git rm` してから `git checkout upstream/main --` で置き換える（テンプレートから作ったリポジトリは履歴がつながっておらず、merge できないため）。手順はスクラッチの 2 リポジトリで bash で確かめた
+- UPDATING.md で差し替える本体：`app/` `scripts/` `firebase/` `tests/` `.github/` `docs/` `package.json` `package-lock.json` `vitest.config.ts` `vitest.rules.config.ts` `.gitignore` `README.md` `UPDATING.md`。本体のファイルを増やしたら、この並びも更新する
+- README のスクリーンショット（`docs/images/`）は、エミュレーターと開発サーバーにダミーの申込 5 件を入れ、ヘッドレス Chrome（DevTools Protocol、2 倍解像度）で撮った。開発用ツールバーは消してある。管理ページは 1280px 幅、一覧・詳細は 900px 幅
+- サンプルイベント 2 件は README の説明と合っているため変えていない。未来のサンプル（2026-11-20）が過去になったら、README の手順 9 に「`date` と `deadline` を先の日付に書き換えて試す」と書いてある
 - キープアライブは `notify.yml` の最後で `PUT .../actions/workflows/notify.yml/enable` を毎回呼ぶ。これで 60 日のカウントがリセットされるかは未確認。README には「無効化予告のメールが届いたら空コミットを push する」と書く
 
 ### 主なファイル
@@ -541,14 +546,25 @@ firebase-tools 15.34 のソース（`lib/deploy/index.js`、`lib/deploy/firestor
 ### 次のセッションの始め方
 1. この仕様書の 2 章（決定事項）、8 章（画面）、15 章（このメモ）を読む。画面の見た目は Design キャンバス「イベント管理 画面デザイン」に合わせる
 2. 手元の状態を確認する。どれも通る状態で引き継いでいる
-   ```sh
+   ```bash
    npm test               # 単体テスト（59 件）
    npm run validate       # config.yml とイベントの検証
    npm run check          # 型チェック
    export PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH
    npm run test:rules     # ルール・同期・notify のテスト（62 件）
    ```
-3. 次のステップの計画を提示して確認を取ってから実装する
+3. 次の作業の計画を提示して確認を取ってから進める
+
+実装は終わっている。次にやること（README のセットアップ手順をなぞりながら行う）：
+1. GitHub に push し、CI・Deploy・Notify が通るか確かめる
+2. 実際の Firebase プロジェクトでデプロイし、サービスアカウントのロール（上の表）を確定させる。README の手順 4 の表と注記を、確かめた内容に直す
+3. 本物の Google ログインと Gmail での送信を試す
+4. 問題があれば README の「よくあるトラブル」に足す
+
+未決のこと：
+- `docs/` の `HANDOFF.md` と `design/` が、テンプレートから作った各グループのリポジトリにもコピーされる（UPDATING.md でも差し替えの対象）。テンプレートとして公開する前に、残すか別の場所に移すかを決める
+- 変更点の一覧（CHANGELOG）はない。UPDATING.md では元のリポジトリのコミット履歴を見るよう案内している
+- Codespaces から `.github/workflows/` を変える push が権限で拒否されるかは未確認（UPDATING.md に注記した）
 
 未確認のまま残っていること：
 - Deploy と CI のワークフローを GitHub 上で一度も動かしていない（push 後に確認）
@@ -583,7 +599,10 @@ firebase-tools 15.34 のソース（`lib/deploy/index.js`、`lib/deploy/firestor
 - `dry_run` のときは送信も書き込みもしない。最初は dry_run だけで作り、送信は後から足す
 - `notify.yml` は deploy.yml と同じ認証（`google-github-actions/auth`）に加えて、`SMTP_USER` / `SMTP_PASSWORD` を渡す。`concurrency` を必ず付ける
 
-### ステップ 7：README・UPDATING.md・サンプル
+### ステップ 7：README・UPDATING.md・サンプル（完了）
+README の記述を実装（エラー文言・ボタンの表記・日付の書式・メールの差し込み値）と突き合わせた。UPDATING.md の手順は、履歴のつながっていない 2 つのリポジトリで bash で実行し、`site/` が残ること、元で消えたファイルが消えること、それ以外が元と一致することを確かめた。サービスアカウントのロールは見込みのまま README に書き、注記を付けた（実デプロイで確定させる）。
+
+当初のメモ：
 - 上の「サービスアカウントのロール」の表を README に移す（実デプロイで確かめた内容にする）
 - 60 日問題：GitHub から「ワークフローが無効になります」というメールが届いたら、空コミット（`git commit --allow-empty`）を push するよう書く
 - 動作確認の手順：Actions → Notify → Run workflow（dry_run にチェック）でログを見る
