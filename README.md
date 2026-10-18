@@ -133,6 +133,8 @@ GitHub Actions が Firestore を読み書きするための鍵を作ります。
 | `SMTP_USER` | 送信に使う Gmail アドレス |
 | `SMTP_PASSWORD` | 手順 5 のアプリパスワード（空白は除いてもそのままでもかまいません） |
 
+`FIREBASE_SERVICE_ACCOUNT` を登録するまでは、Deploy と Notify は何もせずに終わります（失敗の通知は届きません）。リポジトリを作った直後に Actions で黄色い警告が出るのは、このためです。
+
 ### 7. GitHub Pages を有効にする
 
 **Settings** → **Pages** で、**Source** を **GitHub Actions** にします。
@@ -342,6 +344,7 @@ GitHub の画面だけで済ませたい場合は、README などに 1 行足し
 | ログインのボタンを押しても何も起きない | ブラウザがポップアップをブロックしています。アドレスバーの表示からポップアップを許可してください |
 | Deploy の「検証」で失敗する | `config.yml` かイベントの書き方に誤りがあります。ログにファイル名と項目が表示されます |
 | Deploy の「デプロイ」や「同期」で権限エラー | サービスアカウントのロールが足りないか、`FIREBASE_SERVICE_ACCOUNT` の貼り付けが不完全です（手順 4・6） |
+| Deploy は成功したのに「セットアップが終わっていないため、デプロイしませんでした」と出る | Secret の `FIREBASE_SERVICE_ACCOUNT` が登録されていません（手順 6）。登録した後、もう一度 push するか、Actions → Deploy → Run workflow で実行してください |
 | Deploy は成功したのにサイトが 404 | Settings → Pages の Source が「GitHub Actions」になっていません（手順 7） |
 | 申し込もうとすると「申し込めませんでした」 | 通信が切れた、またはイベントを追加した直後で Deploy がまだ終わっていない、などです。Deploy が終わってから再読み込みしてください |
 | 管理ページで「権限がありません」 | ログインしたアカウントが `admins` にありません。追加した後に push したかも確かめてください |

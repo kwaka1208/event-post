@@ -12,7 +12,30 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Secrets を登録する前（テンプレートそのものや、作った直後のリポジトリ）は、失敗させずに何もしない
+  setup:
+    runs-on: ubuntu-latest
+    permissions: {}
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - name: セットアップが済んでいるか確かめる
+        id: check
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -n "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Secret の FIREBASE_SERVICE_ACCOUNT が登録されていないため、デプロイしませんでした。README のセットアップ手順を確かめてください"
+            echo "### セットアップが終わっていないため、デプロイしませんでした" >> "$GITHUB_STEP_SUMMARY"
+            echo "Secret の \`FIREBASE_SERVICE_ACCOUNT\` を登録すると、次の push からデプロイします。README のセットアップ手順を確かめてください。" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
   build:
+    needs: setup
+    if: needs.setup.outputs.ready == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
