@@ -20,7 +20,8 @@
     "notify": "tsx scripts/notify.ts",
     "test": "vitest run",
     "emulators": "firebase emulators:start --config firebase/firebase.json --project demo-event-post --only auth,firestore",
-    "test:rules": "firebase emulators:exec --config firebase/firebase.json --project demo-event-post --only firestore \"vitest run --config vitest.rules.config.ts\""
+    "test:rules": "firebase emulators:exec --config firebase/firebase.json --project demo-event-post --only firestore \"vitest run --config vitest.rules.config.ts\"",
+    "test:next-rules": "firebase emulators:exec --config firebase/firebase.json --project demo-event-post --only firestore \"vitest run --config vitest.next-rules.config.ts\""
   },
   "dependencies": {
     "@tanstack/react-query": "^5.104.5",

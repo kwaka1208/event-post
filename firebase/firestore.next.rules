@@ -1,0 +1,168 @@
+rules_version = '2';
+
+// EventPost（再設計版）の Firestore セキュリティルール
+// Cloud Functions を使わないため、権限の確認と入力の検証はすべてここで行う。
+// Actions（Admin SDK）はルールを迂回するので、メール送信の記録などはここでは考えない。
+// 文字数の上限は web/src/lib/limits.ts と合わせる。
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function verified() {
+      return signedIn() && request.auth.token.email_verified == true;
+    }
+
+    function groupPath() {
+      return /databases/$(database)/documents/group/profile;
+    }
+
+    function memberPath(uid) {
+      return /databases/$(database)/documents/members/$(uid);
+    }
+
+    function applicationPath(uid) {
+      return /databases/$(database)/documents/applications/$(uid);
+    }
+
+    function isMember() {
+      return signedIn() && exists(memberPath(request.auth.uid));
+    }
+
+    function myRole() {
+      return get(memberPath(request.auth.uid)).data.role;
+    }
+
+    function isAdmin() {
+      return isMember() && myRole() in ['owner', 'admin'];
+    }
+
+    function isOwner() {
+      return isMember() && myRole() == 'owner';
+    }
+
+    function text(v, min, max) {
+      return v is string && v.size() >= min && v.size() <= max;
+    }
+
+    function exactKeys(d, keys) {
+      return d.keys().hasOnly(keys) && d.keys().hasAll(keys);
+    }
+
+    // ------------------------------------------------------------------
+    // group/profile：グループの情報。トップページに出すので誰でも読める
+    // ------------------------------------------------------------------
+    match /group/profile {
+      allow read: if true;
+
+      // 最初の 1 回だけ。作成者自身の members（role: owner）と同時に作る
+      allow create: if verified()
+        && validGroup(request.resource.data)
+        && exactKeys(request.resource.data, ['name', 'description', 'ownerName', 'ownerUid', 'createdAt'])
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && getAfter(memberPath(request.auth.uid)).data.role == 'owner';
+
+      // 特権管理者だけが、名前・説明・表示する管理者名を変えられる
+      allow update: if isOwner()
+        && validGroup(request.resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'description', 'ownerName']);
+
+      allow delete: if false;
+
+      function validGroup(d) {
+        return text(d.name, 1, 100)
+          && text(d.description, 0, 2000)
+          && text(d.ownerName, 1, 100);
+      }
+    }
+
+    // ------------------------------------------------------------------
+    // members/{uid}：グループのメンバー（ドキュメント ID は uid）
+    // ------------------------------------------------------------------
+    match /members/{uid} {
+      allow read: if (signedIn() && request.auth.uid == uid) || isAdmin();
+
+      allow create: if isCreatingOwner(uid) || isApproving(uid);
+
+      // 役割を変えられるのは特権管理者だけ。特権管理者自身の役割は変えられない
+      allow update: if isOwner()
+        && resource.data.role != 'owner'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role'])
+        && request.resource.data.role in ['admin', 'member'];
+
+      // 参加者は管理者が、管理者は特権管理者が削除できる。特権管理者は削除できない
+      allow delete: if resource.data.role != 'owner'
+        && (isOwner() || (isAdmin() && resource.data.role == 'member'));
+
+      function memberKeys() {
+        return ['uid', 'role', 'realName', 'nickname', 'email', 'joinedAt'];
+      }
+
+      // グループの作成：group/profile がまだなく、この書き込みで自分を owner にして作る
+      function isCreatingOwner(uid) {
+        let d = request.resource.data;
+        return verified()
+          && request.auth.uid == uid
+          && !exists(groupPath())
+          && getAfter(groupPath()).data.ownerUid == uid
+          && exactKeys(d, memberKeys())
+          && d.uid == uid
+          && d.role == 'owner'
+          && text(d.realName, 1, 100)
+          && text(d.nickname, 1, 100)
+          && d.email == request.auth.token.email
+          && d.joinedAt == request.time;
+      }
+
+      // 承認：申し込みの内容を写して members を作り、同じ書き込みで申し込みを消す。
+      // 管理者として承認できるのは特権管理者だけ
+      function isApproving(uid) {
+        let d = request.resource.data;
+        let app = get(applicationPath(uid)).data;
+        return isAdmin()
+          && exists(applicationPath(uid))
+          && !existsAfter(applicationPath(uid))
+          && exactKeys(d, memberKeys())
+          && d.uid == uid
+          && (d.role == 'member' || (d.role == 'admin' && isOwner()))
+          && d.realName == app.realName
+          && d.nickname == app.nickname
+          && d.email == app.email
+          && d.joinedAt == request.time;
+      }
+    }
+
+    // ------------------------------------------------------------------
+    // applications/{uid}：参加申し込み（ドキュメント ID は申込者の uid）
+    // ------------------------------------------------------------------
+    match /applications/{uid} {
+      allow read: if (signedIn() && request.auth.uid == uid) || isAdmin();
+
+      // グループがあり、まだメンバーでない本人だけが申し込める
+      allow create: if verified()
+        && request.auth.uid == uid
+        && exists(groupPath())
+        && !isMember()
+        && validApplication(uid, request.resource.data);
+
+      // 内容を変えたいときは取り下げて申し込み直す
+      allow update: if false;
+
+      // 本人の取り下げと、管理者の削除（承認時の削除も含む）
+      allow delete: if (signedIn() && request.auth.uid == uid) || isAdmin();
+
+      function validApplication(uid, d) {
+        return exactKeys(d, ['uid', 'realName', 'nickname', 'reason', 'email', 'createdAt'])
+          && d.uid == uid
+          && text(d.realName, 1, 100)
+          && text(d.nickname, 1, 100)
+          && text(d.reason, 1, 1000)
+          && d.email == request.auth.token.email
+          && d.createdAt == request.time;
+      }
+    }
+  }
+}
