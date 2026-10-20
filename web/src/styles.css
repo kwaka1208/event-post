@@ -1,4 +1,4 @@
-/* デザイントークンと基礎のスタイルだけを置く。部品のスタイルは各コンポーネントに書く */
+/* デザイントークン、基礎のスタイル、画面で共通に使う部品のスタイル */
 :root {
   --accent: #0f6e8c;
   --accent-light: color-mix(in srgb, var(--accent) 12%, #fff);
@@ -72,9 +72,269 @@ a:hover {
   border: 0;
 }
 
-.main {
+[hidden] {
+  display: none !important;
+}
+
+/* ---------------------------------------------------------------- レイアウト */
+
+#root {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.site-header {
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+}
+.site-header .inner,
+.site-footer .inner {
   width: 100%;
   max-width: 640px;
   margin: 0 auto;
-  padding: 28px 20px 40px;
+  padding: 0 16px;
+}
+.site-header .inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 60px;
+}
+.brand {
+  flex: 1;
+  min-width: 0;
+  color: var(--text);
+  font-family: var(--font-heading);
+  font-size: 17px;
+  font-weight: 700;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.brand:hover {
+  color: var(--accent);
+}
+.account {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--text-sub);
+}
+.account-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 14em;
+}
+
+.main {
+  flex: 1;
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 28px 16px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.main h1 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 26px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.site-footer {
+  border-top: 1px solid var(--border);
+  color: var(--text-sub);
+  font-size: 13px;
+}
+.site-footer .inner {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 16px;
+  padding-top: 16px;
+  padding-bottom: 24px;
+}
+
+/* ---------------------------------------------------------------- トップページ */
+
+.intro {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.intro p {
+  margin: 0;
+}
+.owner {
+  color: var(--text-sub);
+  font-size: 14px;
+}
+.description {
+  white-space: pre-wrap;
+}
+
+/* ---------------------------------------------------------------- 部品 */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--card);
+}
+.card p {
+  margin: 0;
+}
+.card-title {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 20px;
+  line-height: 1.5;
+}
+.main h1.card-title {
+  font-size: 20px;
+}
+.section-title {
+  margin: 8px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--divider);
+  font-size: 15px;
+}
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.skeleton {
+  border-radius: 6px;
+  background: var(--disabled-bg);
+}
+
+.button-primary,
+.button-secondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 0 16px;
+  border-radius: var(--radius-button);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+.button-primary {
+  border: none;
+  background: var(--accent);
+  color: #fff;
+}
+.button-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  color: #fff;
+}
+.button-primary:disabled {
+  background: var(--disabled-bg);
+  color: var(--text-sub);
+  cursor: default;
+}
+.button-secondary {
+  min-height: 48px;
+  border: 1px solid #c7ced6;
+  background: #fff;
+  color: var(--text);
+  font-size: 15px;
+}
+.button-secondary:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--bg);
+}
+.button-secondary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.button-text {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 0 8px;
+  border: none;
+  background: none;
+  color: var(--text-sub);
+  font-family: inherit;
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.tag {
+  padding: 0 6px;
+  border-radius: 4px;
+  background: var(--accent-light);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+}
+.input {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 12px;
+  border: 1px solid #c7ced6;
+  border-radius: 10px;
+  background: #fff;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 16px; /* iOS の自動ズームを防ぐ */
+}
+.textarea {
+  padding: 10px 12px;
+  resize: vertical;
+}
+.help {
+  font-size: 12px;
+  color: var(--text-sub);
+}
+.error {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--danger-bg);
+  color: var(--danger);
+  font-size: 14px;
+}
+
+.summary {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+}
+.summary dt {
+  color: var(--text-sub);
+  font-size: 13px;
+}
+.summary dd {
+  margin: 0 0 8px;
+}
+.pre-wrap {
+  white-space: pre-wrap;
 }

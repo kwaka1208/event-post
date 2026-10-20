@@ -1,6 +1,7 @@
 // ブラウザ側の Firebase 初期化。
 // 本番では Firebase Hosting が配信する /__/firebase/init.json から設定を読むので、設定ファイルは要らない。
-// 開発サーバー（npm run web:dev）では、npm run emulators で起動したエミュレーターに接続する。
+// 開発サーバー（npm run web:dev）では、npm run emulators:next で起動したエミュレーターに接続する
+// （ポートは firebase/firebase.next.json と合わせる）。
 import { initializeApp, type FirebaseOptions } from 'firebase/app';
 import { connectAuthEmulator, getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore';
@@ -22,6 +23,6 @@ export const db = getFirestore(app);
 export const googleProvider = new GoogleAuthProvider();
 
 if (useEmulator) {
-  connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
-  connectFirestoreEmulator(db, '127.0.0.1', 8080);
+  connectAuthEmulator(auth, 'http://127.0.0.1:9199', { disableWarnings: true });
+  connectFirestoreEmulator(db, '127.0.0.1', 8180);
 }
