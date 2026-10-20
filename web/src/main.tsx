@@ -3,6 +3,8 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router';
 import { Layout } from '@/components/Layout';
+import { RequireAdmin } from '@/components/RequireAdmin';
+import { ApplicationsPage } from '@/pages/admin/ApplicationsPage';
 import { EventsPage } from '@/pages/EventsPage';
 import { JoinPage } from '@/pages/JoinPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
@@ -24,6 +26,10 @@ const router = createBrowserRouter([
       { path: '/setup', element: <SetupPage /> },
       { path: '/join', element: <JoinPage /> },
       { path: '/events', element: <EventsPage /> },
+      {
+        element: <RequireAdmin />,
+        children: [{ path: '/admin/applications', element: <ApplicationsPage /> }],
+      },
       { path: '*', element: <NotFoundPage /> },
     ],
   },

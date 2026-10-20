@@ -129,6 +129,26 @@ a:hover {
   max-width: 14em;
 }
 
+.site-header .admin-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  min-height: 0;
+  padding-bottom: 10px;
+  font-size: 14px;
+}
+.admin-nav a {
+  color: var(--text-sub);
+  text-decoration: none;
+}
+.admin-nav a:hover,
+.admin-nav a.active {
+  color: var(--accent);
+}
+.admin-nav a.active {
+  font-weight: 700;
+}
+
 .main {
   flex: 1;
   width: 100%;
@@ -199,6 +219,12 @@ a:hover {
   font-size: 20px;
   line-height: 1.5;
 }
+.card-subtitle {
+  margin-left: 4px;
+  color: var(--text-sub);
+  font-size: 15px;
+  font-weight: 400;
+}
 .main h1.card-title {
   font-size: 20px;
 }
@@ -212,6 +238,28 @@ a:hover {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 10px;
+  background: var(--danger-bg);
 }
 
 .skeleton {
@@ -260,6 +308,28 @@ a:hover {
   background: var(--bg);
 }
 .button-secondary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.button-danger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 16px;
+  border: none;
+  border-radius: var(--radius-button);
+  background: var(--danger);
+  color: #fff;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.button-danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 80%, #000);
+}
+.button-danger:disabled {
   opacity: 0.6;
   cursor: default;
 }

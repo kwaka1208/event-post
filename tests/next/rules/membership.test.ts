@@ -23,6 +23,7 @@ import {
   changeRole,
   deleteApplication,
   getApplication,
+  listApplications,
   removeMember,
   submitApplication,
   type Application,
@@ -329,6 +330,32 @@ describe('参加申し込み', () => {
     await assertSucceeds(getApplication(userDb('owner'), 'alice'));
     await assertFails(getApplication(userDb('member'), 'alice'));
     await assertFails(getApplication(userDb('bob'), 'alice'));
+  });
+
+  it('管理者と特権管理者は一覧を読めるが、参加者と未登録のユーザーは読めない', async () => {
+    await seedApplication('alice');
+    await seedApplication('bob');
+    await assertSucceeds(listApplications(userDb('admin')));
+    await assertSucceeds(listApplications(userDb('owner')));
+    await assertFails(listApplications(userDb('member')));
+    await assertFails(listApplications(userDb('alice')));
+    await assertFails(listApplications(guestDb()));
+  });
+
+  it('一覧は申込日時の古い順に並ぶ', async () => {
+    const appAt = (uid: string, millis: number) => ({
+      uid,
+      ...APPLICATION,
+      email: emailOf(uid),
+      createdAt: Timestamp.fromMillis(millis),
+    });
+    await seed(async (db) => {
+      await setDoc(doc(db, 'applications', 'bob'), appAt('bob', 2000));
+      await setDoc(doc(db, 'applications', 'alice'), appAt('alice', 1000));
+    });
+    const list = await listApplications(userDb('admin'));
+    const uids = list.map((a) => a.uid).join(',');
+    if (uids !== 'alice,bob') throw new Error(`並び順が違います: ${uids}`);
   });
 
   it('本人は取り下げられる', async () => {

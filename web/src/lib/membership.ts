@@ -1,9 +1,13 @@
 // メンバー（members）と参加申し込み（applications）の読み書き。
 // 権限の確認はルール（firebase/firestore.next.rules）が行う。
 import {
+  collection,
   deleteDoc,
   doc,
   getDoc,
+  getDocs,
+  orderBy,
+  query,
   serverTimestamp,
   setDoc,
   updateDoc,
@@ -66,6 +70,12 @@ export async function getMember(db: Firestore, uid: string): Promise<Member | nu
 export async function getApplication(db: Firestore, uid: string): Promise<Application | null> {
   const snap = await getDoc(applicationRef(db, uid));
   return snap.exists() ? (snap.data() as Application) : null;
+}
+
+/** 申し込みを申込日時の古い順に並べて返す（管理者だけ） */
+export async function listApplications(db: Firestore): Promise<Application[]> {
+  const snap = await getDocs(query(collection(db, 'applications'), orderBy('createdAt', 'asc')));
+  return snap.docs.map((d) => d.data() as Application);
 }
 
 /** 参加を申し込む。すでにメンバーの場合や、グループがまだない場合はルールで拒否される */
