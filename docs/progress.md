@@ -1,0 +1,68 @@
+# 再設計の進捗と作業メモ
+
+`docs/design.md` の再設計を、段階ごとに進めている。新しいセッションで作業を再開するときは、このファイルと `docs/design.md` を先に読む。
+
+## 進め方の約束
+
+- 作業は `redesign` ブランチで行う
+- 段階ごとに、作業計画を示して確認を取ってから実装する
+- 段階が終わったら、確かめた内容を報告する。コミットは確認を取ってから行う
+- 指示されていないファイルは変えない。旧版（`app/`、`site/`、`scripts/`、`tests/` の `next/` 以外）は、段階 8 まで触らない
+
+## 進捗
+
+| 段階 | 状態 | コミット |
+|---|---|---|
+| 1. `web/` に SPA の骨組み、Firebase Hosting の設定 | 完了 | `af3c1eb` |
+| 2. Firestore のルールとテスト（グループ、`members`、`applications`、承認） | 完了 | `0fc9659` |
+| 3. トップページ、ログイン、`/setup`、`/join`、画面の振り分け | 完了 | `fa7b04c` |
+| 4. 申し込み一覧（管理）と通知メール（申請・承認） | **次はここ**。計画を示すところから | |
+| 5〜8 | 未着手 | |
+
+## 段階 4 の計画のたたき台
+
+再開したら、これを見直したうえで作業計画として示し、確認を取る。
+
+- **画面**：`/admin/applications`
+  - 申し込みを申込日時の順に並べる（本名、ニックネーム、メールアドレス、理由、申込日時）
+  - 1 件ごとに、役割の選択（参加者 / 管理者）、承認、削除のボタンを置く。「管理者」を選べるのは特権管理者だけ
+  - 削除は確認してから行う。ブラウザの `confirm()` は使わず、画面の中で確かめる
+  - 管理者以外は `/` に戻す。管理者用のナビゲーション（ヘッダーなど）を追加する
+- **ルール**：申し込みの一覧（list クエリ）を管理者が読めることを、テストで確かめる。今のルールのままで通るはず
+- **通知メール**：`scripts/next/` に新しく作る（Admin SDK を使う。旧版の `scripts/lib/smtp.ts` を参考に流用する）
+  - 新しい申し込み → 管理者全員（`owner` と `admin`）に通知し、`applications` に `notifiedAt` を書く
+  - 承認 → 本人に通知し、`members` に `welcomedAt` を書く。グループを作った特権管理者には送らない
+  - `notifiedAt` が「ない」ドキュメントは `== null` のクエリで取れない。そのため、全件を読んでコードで絞り込む
+  - サイトの URL は環境変数（例：`SITE_URL`）で渡す
+  - テストは Firestore エミュレーターで行い、`--dry-run`（送らずに内容を表示する）を用意する
+  - GitHub Actions のワークフローは段階 8 で作る
+- **決めてもらうこと**：メールの文面をどこに置くか（コードに書くか、旧版のように編集できるテンプレートファイルにするか）
+
+## 開発環境のメモ
+
+- 新しいルールは `firebase/firestore.next.rules`、エミュレーターの設定は `firebase/firebase.next.json`（Auth は 9199、Firestore は 8180）。段階 8 で、旧版の `firestore.rules` と `firebase.json` と入れ替える
+- テストの置き場所
+  - ルール：`tests/next/rules/`（`npm run test:next-rules`）
+  - 単体：`tests/next/unit/`（`npm test` に含まれる）
+- 画面の確認：`npm run emulators:next` と `npx vite --config web/vite.config.ts --port 5179` を起動する
+  - エミュレーターのデータを消すとき：`curl -X DELETE "http://127.0.0.1:8180/emulator/v1/projects/demo-event-post/databases/(default)/documents"`
+- この端末では `java` に PATH が通っていない。エミュレーターを使うコマンドの前に `export PATH="/opt/homebrew/opt/openjdk@21/bin:$PATH"` を付ける
+- ポート 8080 では、利用者が旧版のエミュレーターを動かしていることがある。止めたり、データを消したりしない
+- Chrome での確認：ログインのポップアップは別ウィンドウで開くため、拡張機能からは操作できない。ページ上の JavaScript で、エミュレーターのテスト用アカウントでログインする
+
+  ```js
+  const src = await fetch('/src/lib/firebase.ts').then(r => r.text());
+  const authUrl = src.match(/from "([^"]*firebase_auth[^"]*)"/)[1];
+  const fb = await import('/src/lib/firebase.ts');
+  const a = await import(authUrl);
+  await a.signInWithCredential(fb.auth, a.GoogleAuthProvider.credential(
+    JSON.stringify({ sub: 'alice-1', email: 'alice@example.com', email_verified: true, name: '山田 花子' })));
+  ```
+
+  ページを移動すると、この関数は消える。移動するたびに実行し直す
+
+## 後回しにしていること
+
+- ビルドした JS が約 900KB あり、サイズの警告が出ている。主な原因は Firebase の SDK。段階 8 で、画面ごとにコードを分割する
+- ポップアップでのログインは、利用者が手元で確かめる必要がある（拡張機能からは操作できないため）
+- 旧版のヘルプページの変更は `main` の `git stash` に退避してある（名前は「help page (before redesign)」）
