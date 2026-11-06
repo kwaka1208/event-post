@@ -33,6 +33,16 @@
 - main の `deploy.yml` は `app/`（旧版）だけをビルドして公開する。そのため、新版を main に入れても、公開中のサイトは段階 8 まで旧版のまま
 - **段階 8 でやること**：`deploy.yml` を新版用にする。`VITE_FIREBASE_*` の出どころ（設定ファイルかリポジトリの Variables か）、`BASE_PATH`（`actions/configure-pages` の `base_path`）、通知メールの `SITE_URL`（サブパスを含める）を決める。Firebase Authentication の承認済みドメインに `<ユーザー>.github.io`（または独自ドメイン）を足す手順を README に書く
 
+## 派生リポジトリへの反映（2026-11-06）
+
+テンプレートから作ったリポジトリ（例：`kwaka1208/asugaku`）に本体の更新を届ける仕組み。
+
+- `.github/workflows/update.yml`（Update EventPost）：派生リポジトリで、毎週月曜と手動で、元のリポジトリの本体を取り込む PR を作る。元のリポジトリ自身では動かない
+- 残すのは `site/`、`.eventpost-keep`（とそこに書いたパス）、`.eventpost-version`（取り込んだ版の記録）。それ以外は元と同じにする。本体のパスを一覧で持たないので、`web/` のような新しいディレクトリにも追従する
+- 派生リポジトリには、Secret `EVENTPOST_UPDATE_TOKEN`（fine-grained PAT。Contents・Pull requests・Workflows を Read and write）が要る。`GITHUB_TOKEN` では `.github/workflows/` の変更を push できず、作った PR で CI も動かないため
+- 手順は `UPDATING.md`。手作業の手順も同じ方式に揃えた
+- **注意**：main には作業中の新版（`web/` など）が入っている。派生リポジトリが取り込んでも、`deploy.yml` が旧版を公開する間は影響がない。段階 8 で `deploy.yml` を新版に切り替えると、取り込んだ時点で新版に移る。段階 8 では、派生リポジトリの移行手順（Firebase の設定、データ）を先に用意する
+
 ## 段階 4 の計画
 
 4-A（画面）と 4-B（通知メール）は完了。

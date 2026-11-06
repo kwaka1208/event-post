@@ -1,0 +1,131 @@
+# テンプレートから作ったリポジトリで、元のリポジトリ（kwaka1208/event-post）の本体を取り込む PR を作る。
+# site/ と、.eventpost-keep に書いたパスはそのまま残し、それ以外を元のリポジトリと同じにする。
+# 元のリポジトリそのものでは動かない。手順は UPDATING.md を見る。
+name: Update EventPost
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 取り込む元のリポジトリのブランチまたはタグ
+        default: main
+  schedule:
+    # 毎週月曜 10:17（日本時間）
+    - cron: '17 1 * * 1'
+
+permissions: {}
+
+concurrency:
+  group: eventpost-update
+  cancel-in-progress: false
+
+env:
+  UPSTREAM: ${{ vars.EVENTPOST_UPSTREAM || 'kwaka1208/event-post' }}
+  UPDATE_BRANCH: eventpost-update
+
+jobs:
+  update:
+    if: github.repository != (vars.EVENTPOST_UPSTREAM || 'kwaka1208/event-post')
+    runs-on: ubuntu-latest
+    steps:
+      # 既定のトークン（GITHUB_TOKEN）は .github/workflows/ の変更を push できず、作った PR で CI も動かないため、
+      # このリポジトリだけを対象にしたトークンを使う
+      - name: トークンが登録されているか確かめる
+        id: check
+        env:
+          TOKEN: ${{ secrets.EVENTPOST_UPDATE_TOKEN }}
+        run: |
+          if [ -n "$TOKEN" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Secret の EVENTPOST_UPDATE_TOKEN が登録されていないため、更新を確かめませんでした。UPDATING.md の手順を確かめてください"
+            echo "### トークンが登録されていないため、更新を確かめませんでした" >> "$GITHUB_STEP_SUMMARY"
+            echo "Secret の \`EVENTPOST_UPDATE_TOKEN\` を登録してください。手順は UPDATING.md にあります。" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - uses: actions/checkout@v7
+        if: steps.check.outputs.ready == 'true'
+        with:
+          token: ${{ secrets.EVENTPOST_UPDATE_TOKEN }}
+
+      - name: 元のリポジトリの本体で置き換える
+        if: steps.check.outputs.ready == 'true'
+        id: update
+        env:
+          REF: ${{ inputs.ref || 'main' }}
+        run: |
+          set -euo pipefail
+          git fetch --depth 1 "https://github.com/$UPSTREAM.git" "$REF"
+          new_sha=$(git rev-parse FETCH_HEAD)
+
+          # 前回取り込んだ版（このワークフローが .eventpost-version に書く）
+          prev_sha=$(sed -n 's/^.*@\([0-9a-f]\{40\}\)$/\1/p' .eventpost-version 2>/dev/null | head -1 || true)
+
+          # 残すパス：site/、.eventpost-keep（とそこに書いたパス。# のあとと空行は無視する）、.eventpost-version
+          keep=(site .eventpost-keep .eventpost-version)
+          if [ -f .eventpost-keep ]; then
+            while IFS= read -r line; do
+              line="${line%%#*}"
+              line="$(echo "$line" | xargs)"
+              [ -n "$line" ] && keep+=("${line%/}")
+            done < .eventpost-keep
+          fi
+          exclude=()
+          for k in "${keep[@]}"; do exclude+=(":(top,exclude)$k"); done
+
+          # 元で消えたファイルも消えるよう、本体を消してから元の版で置き換える
+          git rm -r -q --ignore-unmatch -- . "${exclude[@]}"
+          git checkout "$new_sha" -- . "${exclude[@]}"
+
+          if git diff --cached --quiet; then
+            echo "変更はありません（$UPSTREAM@${new_sha:0:7}）" >> "$GITHUB_STEP_SUMMARY"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "$UPSTREAM@$new_sha" > .eventpost-version
+          git add .eventpost-version
+          if [ -n "$prev_sha" ]; then
+            changes="https://github.com/$UPSTREAM/compare/$prev_sha...$new_sha"
+          else
+            changes="https://github.com/$UPSTREAM/commits/$new_sha"
+          fi
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -q -C "$UPDATE_BRANCH"
+          git commit -q -m "Update EventPost to $UPSTREAM@$new_sha"
+          git push -q -f origin "$UPDATE_BRANCH"
+
+          {
+            echo "changed=true"
+            echo "sha=$new_sha"
+            echo "changes=$changes"
+          } >> "$GITHUB_OUTPUT"
+          echo "$UPSTREAM@${new_sha:0:7} を取り込むブランチ \`$UPDATE_BRANCH\` を作りました" >> "$GITHUB_STEP_SUMMARY"
+          git show --stat --format= HEAD | tail -1 >> "$GITHUB_STEP_SUMMARY"
+
+      - name: PR を作る（すでにあれば、説明を書き直す）
+        if: steps.update.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.EVENTPOST_UPDATE_TOKEN }}
+          SHA: ${{ steps.update.outputs.sha }}
+          CHANGES: ${{ steps.update.outputs.changes }}
+        run: |
+          set -euo pipefail
+          title="EventPost を更新する（${SHA:0:7}）"
+          body=$(cat <<EOF
+          元のリポジトリ（$UPSTREAM）の本体を取り込みます。\`site/\` と \`.eventpost-keep\` に書いたパスは変えていません。
+
+          - 取り込む版：https://github.com/$UPSTREAM/commit/$SHA
+          - 何が変わったか：$CHANGES
+
+          マージする前に、CI が成功していることを確かめてください。マージした後の確認は、UPDATING.md の「更新した後に」を見てください。
+          EOF
+          )
+          if [ "$(gh pr list --head "$UPDATE_BRANCH" --state open --json number --jq length)" -gt 0 ]; then
+            gh pr edit "$UPDATE_BRANCH" --title "$title" --body "$body"
+          else
+            gh pr create --head "$UPDATE_BRANCH" --title "$title" --body "$body"
+          fi

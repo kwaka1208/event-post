@@ -354,7 +354,7 @@ GitHub の画面だけで済ませたい場合は、README などに 1 行足し
 
 ## 本体を更新する
 
-`site/` 以外（本体）を新しい版に差し替える手順は [UPDATING.md](UPDATING.md) を見てください。
+`site/` 以外（本体）を新しい版に差し替えます。Actions の「Update EventPost」が、元のリポジトリの最新版を取り込む PR を毎週作ります（最初にトークンの登録が必要です）。準備と手順は [UPDATING.md](UPDATING.md) を見てください。
 
 ## 開発者向け
 
