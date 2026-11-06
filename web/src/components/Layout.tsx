@@ -10,7 +10,8 @@ export function Layout() {
   const session = state.status === 'ready' ? state.session : null;
   const groupName = session && session.kind !== 'no-group' ? session.group.name : null;
   const nickname = session?.kind === 'member' ? session.member.nickname : null;
-  const isAdmin = session?.kind === 'member' && isAdminRole(session.member.role);
+  const isMember = session?.kind === 'member';
+  const isAdmin = isMember && isAdminRole(session.member.role);
   const signedIn = session && (session.kind === 'no-group' ? !!session.user : session.kind !== 'guest');
   const email = session && 'user' in session ? session.user?.email : null;
 
@@ -34,11 +35,16 @@ export function Layout() {
             </span>
           )}
         </div>
-        {isAdmin && (
-          <nav className="inner admin-nav" aria-label="管理">
+        {isMember && (
+          <nav className="inner site-nav" aria-label="メニュー">
             <NavLink to="/events">イベント</NavLink>
-            <NavLink to="/admin/events">イベント管理</NavLink>
-            <NavLink to="/admin/applications">参加申し込み</NavLink>
+            <NavLink to="/me">マイページ</NavLink>
+            {isAdmin && (
+              <>
+                <NavLink to="/admin/events">イベント管理</NavLink>
+                <NavLink to="/admin/applications">参加申し込み</NavLink>
+              </>
+            )}
           </nav>
         )}
       </header>

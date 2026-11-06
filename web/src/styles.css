@@ -129,7 +129,7 @@ a:hover {
   max-width: 14em;
 }
 
-.site-header .admin-nav {
+.site-header .site-nav {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 20px;
@@ -137,15 +137,15 @@ a:hover {
   padding-bottom: 10px;
   font-size: 14px;
 }
-.admin-nav a {
+.site-nav a {
   color: var(--text-sub);
   text-decoration: none;
 }
-.admin-nav a:hover,
-.admin-nav a.active {
+.site-nav a:hover,
+.site-nav a.active {
   color: var(--accent);
 }
-.admin-nav a.active {
+.site-nav a.active {
   font-weight: 700;
 }
 

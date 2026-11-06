@@ -5,4 +5,6 @@ export const eventKeys = {
   detail: (id: string) => ['events', 'detail', id] as const,
   myRegistration: (id: string, uid: string) => ['events', 'detail', id, 'registration', uid] as const,
   myRegistrations: (uid: string) => ['events', 'mine', uid] as const,
+  /** マイページ（自分の申込と、そのイベント） */
+  myPage: (uid: string) => ['events', 'my-page', uid] as const,
 };

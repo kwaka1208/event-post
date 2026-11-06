@@ -11,6 +11,7 @@ import { EventEditPage, EventNewPage } from '@/pages/admin/EventEditPage';
 import { EventDetailPage } from '@/pages/EventDetailPage';
 import { EventsPage } from '@/pages/EventsPage';
 import { JoinPage } from '@/pages/JoinPage';
+import { MyPage } from '@/pages/MyPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { SetupPage } from '@/pages/SetupPage';
 import { TopPage } from '@/pages/TopPage';
@@ -38,6 +39,7 @@ const router = createBrowserRouter(
           children: [
             { path: '/events', element: <EventsPage /> },
             { path: '/events/:id', element: <EventDetailPage /> },
+            { path: '/me', element: <MyPage /> },
           ],
         },
         {
