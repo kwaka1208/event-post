@@ -18,22 +18,28 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
 });
 
-const router = createBrowserRouter([
-  {
-    element: <Layout />,
-    children: [
-      { path: '/', element: <TopPage /> },
-      { path: '/setup', element: <SetupPage /> },
-      { path: '/join', element: <JoinPage /> },
-      { path: '/events', element: <EventsPage /> },
-      {
-        element: <RequireAdmin />,
-        children: [{ path: '/admin/applications', element: <ApplicationsPage /> }],
-      },
-      { path: '*', element: <NotFoundPage /> },
-    ],
-  },
-]);
+// GitHub Pages のサブパス（web/vite.config.ts の base）。/ で配信するときは空になる
+const basename = import.meta.env.BASE_URL.replace(/\/+$/, '');
+
+const router = createBrowserRouter(
+  [
+    {
+      element: <Layout />,
+      children: [
+        { path: '/', element: <TopPage /> },
+        { path: '/setup', element: <SetupPage /> },
+        { path: '/join', element: <JoinPage /> },
+        { path: '/events', element: <EventsPage /> },
+        {
+          element: <RequireAdmin />,
+          children: [{ path: '/admin/applications', element: <ApplicationsPage /> }],
+        },
+        { path: '*', element: <NotFoundPage /> },
+      ],
+    },
+  ],
+  { basename },
+);
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

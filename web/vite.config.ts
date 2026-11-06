@@ -1,12 +1,35 @@
+import { copyFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
+
+const outDir = fileURLToPath(new URL('./dist', import.meta.url));
+
+// GitHub Pages で公開する。独自ドメインを使わないときは https://<ユーザー>.github.io/<リポジトリ>/ になるので、
+// 環境変数 BASE_PATH（例：/event-post）でサブパスを渡す。省略すると / で配信する。
+function basePath(): string {
+  const raw = process.env.BASE_PATH ?? '/';
+  return `/${raw.replace(/^\/+|\/+$/g, '')}/`.replace(/^\/\/$/, '/');
+}
+
+// GitHub Pages には、どのパスにも index.html を返す設定がない。
+// 知らないパスには 404.html を返すので、index.html を複製して、/events/abc などを直接開いても画面を出せるようにする。
+function spaFallback(): Plugin {
+  return {
+    name: 'spa-fallback-404',
+    apply: 'build',
+    closeBundle() {
+      copyFileSync(`${outDir}/index.html`, `${outDir}/404.html`);
+    },
+  };
+}
 
 export default defineConfig({
   root: fileURLToPath(new URL('.', import.meta.url)),
-  plugins: [react()],
+  base: basePath(),
+  plugins: [react(), spaFallback()],
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
-  build: { outDir: 'dist', emptyOutDir: true },
+  build: { outDir, emptyOutDir: true },
 });

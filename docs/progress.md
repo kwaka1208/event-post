@@ -4,7 +4,7 @@
 
 ## 進め方の約束
 
-- 作業は `redesign` ブランチで行う
+- 作業は `redesign` ブランチで行う。2026-11-06 に、それまでの内容を main に反映した
 - 段階ごとに、作業計画を示して確認を取ってから実装する
 - 段階が終わったら、確かめた内容を報告する。コミットは確認を取ってから行う
 - 指示されていないファイルは変えない。旧版（`app/`、`site/`、`scripts/`、`tests/` の `next/` 以外）は、段階 8 まで触らない
@@ -13,13 +13,25 @@
 
 | 段階 | 状態 | コミット |
 |---|---|---|
-| 1. `web/` に SPA の骨組み、Firebase Hosting の設定 | 完了 | `af3c1eb` |
+| 1. `web/` に SPA の骨組み、Firebase Hosting の設定 | 完了。のちに GitHub Pages 用に変更 | `af3c1eb` |
+| 1'. 配信先を GitHub Pages に変更し、main に反映 | 完了 | このコミット |
 | 2. Firestore のルールとテスト（グループ、`members`、`applications`、承認） | 完了 | `0fc9659` |
 | 3. トップページ、ログイン、`/setup`、`/join`、画面の振り分け | 完了 | `fa7b04c` |
 | 4-A. 申し込み一覧（`/admin/applications`）、管理者用のナビ | 完了 | `2ecfe0e` |
-| 4-B. 通知メール（申請・承認）。`scripts/next/` | 完了 | このコミット |
+| 4-B. 通知メール（申請・承認）。`scripts/next/` | 完了 | `e8ef288` |
 | 5. イベントの作成・編集、一覧・詳細、申込とキャンセル | **次はここ**。作業計画を示すところから | |
 | 6〜8 | 未着手 | |
+
+## 配信先を GitHub Pages に変えたこと（2026-11-06）
+
+ほかのサイトと運用を揃えるため、Firebase Hosting をやめて GitHub Pages で配信する。
+
+- Firebase の Web 設定：`/__/firebase/init.json`（Hosting 専用）は使えないので、ビルド時に `VITE_FIREBASE_API_KEY`、`VITE_FIREBASE_AUTH_DOMAIN`、`VITE_FIREBASE_PROJECT_ID`、`VITE_FIREBASE_APP_ID` で埋め込む（`web/src/lib/firebase.ts`）。ないまま本番用にビルドすると、開いたときにエラーになる
+- サブパス：`BASE_PATH`（例：`/event-post`）を Vite の `base` と React Router の `basename` に使う。省略すると `/`
+- 直接開いた URL：ビルドの最後に `index.html` を `404.html` に複製する（`web/vite.config.ts`）。ステータスは 404 になるが、画面は出る
+- `firebase/firebase.json` から `hosting` を外し、main と同じ内容に戻した
+- main の `deploy.yml` は `app/`（旧版）だけをビルドして公開する。そのため、新版を main に入れても、公開中のサイトは段階 8 まで旧版のまま
+- **段階 8 でやること**：`deploy.yml` を新版用にする。`VITE_FIREBASE_*` の出どころ（設定ファイルかリポジトリの Variables か）、`BASE_PATH`（`actions/configure-pages` の `base_path`）、通知メールの `SITE_URL`（サブパスを含める）を決める。Firebase Authentication の承認済みドメインに `<ユーザー>.github.io`（または独自ドメイン）を足す手順を README に書く
 
 ## 段階 4 の計画
 
@@ -57,6 +69,7 @@
 ## 開発環境のメモ
 
 - 新しいルールは `firebase/firestore.next.rules`、エミュレーターの設定は `firebase/firebase.next.json`（Auth は 9199、Firestore は 8180）。段階 8 で、旧版の `firestore.rules` と `firebase.json` と入れ替える
+- main の CI（`ci.yml`）は、新版のうち `tests/next/unit` しか実行しない（`npm test` に含まれるため）。`web:check`、`web:build`、`test:next-rules` を CI に足すかは未定
 - テストの置き場所
   - ルール：`tests/next/rules/`（`npm run test:next-rules`）
   - 通知メール：`tests/next/notify/`（`npm run test:next-rules` に含まれる）

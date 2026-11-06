@@ -9,7 +9,7 @@
 | グループの数 | 1 サイト 1 グループ。グループごとに Firebase のプロジェクトを用意してデプロイする |
 | グループの作成 | デプロイ後、最初にログインした人が `/setup` で作る。作った人が特権管理者になる。2 つ目は作れない |
 | 画面 | Vite＋React＋React Router＋TanStack Query の SPA（`web/`） |
-| ホスティング | Firebase Hosting。Firebase の設定は `/__/firebase/init.json` から読む |
+| ホスティング | GitHub Pages（ほかのサイトと運用を揃える）。Firebase の Web 設定はビルド時に環境変数 `VITE_FIREBASE_*` で埋め込む。どのパスでも画面を出せるよう、`index.html` を `404.html` に複製する。サブパスは環境変数 `BASE_PATH` で渡す |
 | データ | Cloud Firestore。アクセス制御はセキュリティルールで行う。無料の Spark プランで動かす（Cloud Functions は使わない） |
 | メール | GitHub Actions が毎時 Firestore を見て、Gmail から送る。最大 1 時間ほど遅れて届く |
 | 申込データ | 自動では削除しない（マイページで過去の参加を見せるため） |
@@ -81,7 +81,7 @@
 
 | 段階 | 内容 |
 |---|---|
-| 1 | `web/` に SPA の骨組み、Firebase Hosting の設定 |
+| 1 | `web/` に SPA の骨組み、GitHub Pages で配信するための設定 |
 | 2 | Firestore のルールとテスト（グループの作成、`members`、`applications`、承認） |
 | 3 | トップページ、ログイン、`/setup`、`/join`、ログイン状態に応じた画面の振り分け |
 | 4 | 申し込み一覧（管理）と、通知メール（申請と承認） |
