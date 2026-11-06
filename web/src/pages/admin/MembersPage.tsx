@@ -2,6 +2,7 @@
 // 参加者は管理者が、管理者は特権管理者が削除できる。役割を変えられるのは特権管理者だけ
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Link } from 'react-router';
 import { useAdminMember } from '@/components/RequireAdmin';
 import { Loading, LoadError } from '@/components/Status';
 import { db } from '@/lib/firebase';
@@ -15,9 +16,8 @@ import {
   type Member,
   type Role,
 } from '@/lib/membership';
+import { membersKey } from './adminKeys';
 
-/** ログアウトのときに ['admin'] ごと消す（SessionProvider） */
-const membersKey = ['admin', 'members'] as const;
 
 const sections: { role: Role; title: string }[] = [
   { role: 'owner', title: '特権管理者' },
@@ -35,6 +35,9 @@ export function MembersPage() {
   return (
     <main className="main">
       <h1>メンバー（{members.data.length} 人）</h1>
+      <Link to="/admin/mails/new" className="button-primary">
+        メンバーにメールを送る
+      </Link>
       {sections.map(({ role, title }) => {
         const list = members.data.filter((m) => m.role === role);
         if (list.length === 0) return null;

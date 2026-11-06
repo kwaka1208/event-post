@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applicationsMail, pageUrl, welcomeMail } from '../../../scripts/next/lib/messages';
+import { adminMail, applicationsMail, pageUrl, welcomeMail } from '../../../scripts/next/lib/messages';
 
 const siteUrl = 'https://example.github.io/event-post';
 
@@ -37,5 +37,15 @@ describe('welcomeMail', () => {
   it('本文にニックネームとイベント一覧の URL が入る', () => {
     expect(mail.text.startsWith('はなこ さん\n')).toBe(true);
     expect(mail.text).toContain('https://example.github.io/event-post/events');
+  });
+});
+
+describe('adminMail', () => {
+  it('件名にグループ名を付け、本文の後ろに送り主とサイトの URL を添える', () => {
+    const mail = adminMail('テストの会', siteUrl, '次回のお知らせ', '来週集まります。\n持ち物はありません。\n\n');
+    expect(mail.subject).toBe('【テストの会】次回のお知らせ');
+    expect(mail.text).toBe(
+      ['来週集まります。', '持ち物はありません。', '', '---', 'このメールは テストの会 の管理者が送りました。', siteUrl, ''].join('\n'),
+    );
   });
 });

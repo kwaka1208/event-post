@@ -8,6 +8,8 @@ import { RequireMember } from '@/components/RequireMember';
 import { AdminEventsPage } from '@/pages/admin/AdminEventsPage';
 import { ApplicationsPage } from '@/pages/admin/ApplicationsPage';
 import { EventEditPage, EventNewPage } from '@/pages/admin/EventEditPage';
+import { MailComposePage } from '@/pages/admin/MailComposePage';
+import { MailsPage } from '@/pages/admin/MailsPage';
 import { MembersPage } from '@/pages/admin/MembersPage';
 import { SettingsPage } from '@/pages/admin/SettingsPage';
 import { EventDetailPage } from '@/pages/EventDetailPage';
@@ -52,6 +54,8 @@ const router = createBrowserRouter(
             { path: '/admin/events/new', element: <EventNewPage /> },
             { path: '/admin/events/:id', element: <EventEditPage /> },
             { path: '/admin/members', element: <MembersPage /> },
+            { path: '/admin/mails', element: <MailsPage /> },
+            { path: '/admin/mails/new', element: <MailComposePage /> },
             { path: '/admin/settings', element: <SettingsPage /> },
           ],
         },

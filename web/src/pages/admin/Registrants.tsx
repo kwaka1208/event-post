@@ -1,5 +1,6 @@
 // イベントの申込者の一覧（管理者）。申込日時の古い順に並べる
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router';
 import { LoadError } from '@/components/Status';
 import { db } from '@/lib/firebase';
 import { formatDateTime } from '@/lib/format';
@@ -32,6 +33,11 @@ export function Registrants({ eventId }: { eventId: string }) {
             </li>
           ))}
         </ol>
+      )}
+      {regs.data.length > 0 && (
+        <Link to={`/admin/mails/new?event=${eventId}`} className="button-secondary">
+          申込者にメールを送る
+        </Link>
       )}
     </section>
   );

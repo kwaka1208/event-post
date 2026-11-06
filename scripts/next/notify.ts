@@ -1,4 +1,4 @@
-// 参加申し込みの通知（管理者宛て）と、承認の通知（本人宛て）。毎時の Actions から実行する。
+// 参加申し込みの通知（管理者宛て）、承認の通知（本人宛て）、管理者が書いたメール。毎時の Actions から実行する。
 //
 //   npm run notify:next                 # 送信して記録する（SMTP_USER / SMTP_PASSWORD が必要）
 //   npm run notify:next -- --dry-run    # Firestore を読むだけで、送信も書き込みもせず予定をログに出す
@@ -12,7 +12,11 @@ import { applicationsMail, welcomeMail } from './lib/messages';
 import { runNotify, type DeliveryKind, type NotifyResult } from './lib/notify';
 import { createSender, smtpSettings } from './lib/smtp';
 
-const KIND_LABEL: Record<DeliveryKind, string> = { applications: '申し込みの通知', welcome: '承認の通知' };
+const KIND_LABEL: Record<DeliveryKind, string> = {
+  applications: '申し込みの通知',
+  welcome: '承認の通知',
+  mail: '管理者のメール',
+};
 
 /** エラーメッセージに含まれうるメールアドレスを伏せる */
 function mask(message: string): string {
@@ -55,15 +59,20 @@ function report(result: NotifyResult, dryRun: boolean) {
   if (result.notifiedApplications > 0) {
     console.log(`- 申し込み ${result.notifiedApplications} 件を通知済みに${dryRun ? 'する予定です' : 'しました'}。`);
   }
+  if (result.completedMails > 0) console.log(`- 管理者のメール ${result.completedMails} 件を送信済みにしました。`);
+  if (result.failedMails > 0) {
+    console.log(`- 管理者のメール ${result.failedMails} 件は、届かない宛先が残ったため、一部失敗として送り直しをやめました。`);
+  }
   if (result.sent.length === 0 && result.failed.length === 0) console.log('- 送るメールはありませんでした。');
   for (const f of result.failed) {
-    console.log(`- ${KIND_LABEL[f.kind]}の送信に失敗しました（${f.uid}）：${mask(f.error)}`);
+    const where = f.mailId ? `${f.mailId} の ${f.uid}` : f.uid;
+    console.log(`- ${KIND_LABEL[f.kind]}の送信に失敗しました（${where}）：${mask(f.error)}`);
   }
   if (result.stopped) console.log('- 送信の失敗が続いたため、残りは次の回に送ります。SMTP の設定や送信上限を確認してください。');
   for (const w of result.warnings) console.log(`- 注意：${w}`);
 }
 
-/** 送る予定の種類ごとに、文面の見本を 1 通ずつ出す（名前は伏せる） */
+/** 送る予定の種類ごとに、文面の見本を 1 通ずつ出す（名前は伏せる）。管理者のメールは本文を公開のログに出さないよう、見本を出さない */
 function printSamples(result: NotifyResult, groupName: string, siteUrl: string) {
   const kinds = new Set(result.sent.map((d) => d.kind));
   const samples = [];

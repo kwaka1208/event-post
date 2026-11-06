@@ -4,7 +4,13 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { deleteApp, initializeApp } from 'firebase-admin/app';
 import { Timestamp, getFirestore } from 'firebase-admin/firestore';
 import type { Mail } from '../../../scripts/next/lib/messages';
-import { MAX_CONSECUTIVE_FAILURES, runNotify, type NotifyOptions, type Recipient } from '../../../scripts/next/lib/notify';
+import {
+  MAX_CONSECUTIVE_FAILURES,
+  MAX_MAIL_ATTEMPTS,
+  runNotify,
+  type NotifyOptions,
+  type Recipient,
+} from '../../../scripts/next/lib/notify';
 import { EMULATOR_PROJECT_ID } from '../../../web/src/consts';
 
 const app = initializeApp({ projectId: EMULATOR_PROJECT_ID }, 'next-notify-test');
@@ -187,6 +193,129 @@ describe('承認の通知', () => {
     const { sent, send } = sender();
     await run({ send });
     expect(sent.map((s) => s.to.email)).toEqual(['alice@example.org']);
+  });
+});
+
+describe('管理者のメール', () => {
+  const to = (uid: string) => ({ uid, name: `${uid} 本名`, email: `${uid}@example.org` });
+
+  async function addMail(id: string, recipients: string[], extra: Record<string, unknown> = {}) {
+    await db.doc(`mails/${id}`).set({
+      subject: '次回のお知らせ',
+      body: '来週の日曜日に集まります。',
+      recipients: recipients.map(to),
+      createdByUid: 'admin',
+      createdByName: 'admin 本名',
+      createdAt: nextTime(),
+      status: 'pending',
+      ...extra,
+    });
+  }
+
+  it('宛先に 1 人ずつ送り、全員に届いたら送信済みにして、次の回では送らない', async () => {
+    await addMail('m1', ['a', 'b']);
+    const { sent, send } = sender();
+
+    const result = await run({ send });
+    expect(sent.map((s) => s.to.email)).toEqual(['a@example.org', 'b@example.org']);
+    expect(sent[0].mail.subject).toBe('【テストの会】次回のお知らせ');
+    expect(sent[0].mail.text).toContain('来週の日曜日に集まります。');
+    expect(result.completedMails).toBe(1);
+    const saved = await data('mails/m1');
+    expect(saved?.status).toBe('sent');
+    expect(saved?.deliveredUids).toEqual(['a', 'b']);
+    expect(saved?.sentAt).toBeDefined();
+
+    const again = sender();
+    await run({ send: again.send });
+    expect(again.sent).toEqual([]);
+  });
+
+  it('書いた順に送る', async () => {
+    await addMail('first', ['a']);
+    await addMail('second', ['b']);
+    const { sent, send } = sender();
+    await run({ send });
+    expect(sent.map((s) => s.to.email)).toEqual(['a@example.org', 'b@example.org']);
+  });
+
+  it('届かなかった宛先は、次の回にその人だけへ送り直す', async () => {
+    await addMail('m1', ['a', 'bad', 'c']);
+    const first = sender(['bad@example.org']);
+    await run({ send: first.send });
+    let saved = await data('mails/m1');
+    expect(saved?.status).toBe('pending');
+    expect(saved?.deliveredUids).toEqual(['a', 'c']);
+    expect(saved?.failedUids).toEqual(['bad']);
+    expect(saved?.attempts).toBe(1);
+
+    const second = sender();
+    const result = await run({ send: second.send });
+    expect(second.sent.map((s) => s.to.email)).toEqual(['bad@example.org']);
+    expect(result.completedMails).toBe(1);
+    saved = await data('mails/m1');
+    expect(saved?.status).toBe('sent');
+    expect(saved?.failedUids).toEqual([]);
+  });
+
+  it(`届かない宛先が ${MAX_MAIL_ATTEMPTS} 回続いたら、一部失敗として送り直しをやめる`, async () => {
+    await addMail('m1', ['a', 'bad']);
+    let result;
+    for (let i = 0; i < MAX_MAIL_ATTEMPTS; i++) result = await run({ send: sender(['bad@example.org']).send });
+    expect(result?.failedMails).toBe(1);
+    const saved = await data('mails/m1');
+    expect(saved?.status).toBe('failed');
+    expect(saved?.attempts).toBe(MAX_MAIL_ATTEMPTS);
+    expect(saved?.deliveredUids).toEqual(['a']);
+
+    const after = sender();
+    await run({ send: after.send });
+    expect(after.sent).toEqual([]);
+  });
+
+  it('失敗が続いて送信をやめたときは、送り直しの回数に数えない', async () => {
+    await addMail('m1', ['a', 'b', 'c', 'd']);
+    const send = async () => {
+      throw new Error('421 too many');
+    };
+    const result = await run({ send });
+    expect(result.stopped).toBe(true);
+    const saved = await data('mails/m1');
+    expect(saved?.status).toBe('pending');
+    expect(saved?.attempts).toBeUndefined();
+  });
+
+  it('送信済み・一部失敗のメールは送らない', async () => {
+    await addMail('done', ['a'], { status: 'sent' });
+    await addMail('gave-up', ['b'], { status: 'failed' });
+    const { sent, send } = sender();
+    await run({ send });
+    expect(sent).toEqual([]);
+  });
+
+  it('dryRun では、送らず記録もしない', async () => {
+    await addMail('m1', ['a', 'b']);
+    const { sent, send } = sender();
+    const result = await run({ send, dryRun: true });
+    expect(sent).toEqual([]);
+    expect(result.sent).toEqual([
+      { kind: 'mail', uid: 'a', mailId: 'm1' },
+      { kind: 'mail', uid: 'b', mailId: 'm1' },
+    ]);
+    expect((await data('mails/m1'))?.deliveredUids).toBeUndefined();
+  });
+
+  it('送信中に削除されたメールは、残りの宛先に送らない', async () => {
+    await addMail('m1', ['a', 'b', 'c']);
+    const sentTo: string[] = [];
+    const send = async (r: Recipient) => {
+      sentTo.push(r.email);
+      if (sentTo.length === 1) await db.doc('mails/m1').delete();
+    };
+    const result = await run({ send });
+    expect(sentTo).toEqual(['a@example.org']);
+    expect(result.completedMails).toBe(0);
+    expect((await db.doc('mails/m1').get()).exists).toBe(false);
   });
 });
 

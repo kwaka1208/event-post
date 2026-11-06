@@ -174,6 +174,35 @@ service cloud.firestore {
     }
 
     // ------------------------------------------------------------------
+    // mails/{id}：管理者が書いたメール。毎時の Actions（Admin SDK）が宛先に 1 人ずつ送り、
+    // 送信状況（status、deliveredUids など）を書く。宛先は書いた時点の名前とメールアドレスの写し
+    // ------------------------------------------------------------------
+    match /mails/{mailId} {
+      allow read: if isAdmin();
+
+      allow create: if isAdmin()
+        && exactKeys(request.resource.data,
+          ['subject', 'body', 'recipients', 'createdByUid', 'createdByName', 'createdAt', 'status'])
+        && text(request.resource.data.subject, 1, 200)
+        && text(request.resource.data.body, 1, 10000)
+        && request.resource.data.recipients is list
+        && request.resource.data.recipients.size() >= 1
+        && request.resource.data.recipients.size() <= 500
+        && request.resource.data.createdByUid == request.auth.uid
+        && request.resource.data.createdByName == get(memberPath(request.auth.uid)).data.realName
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.status == 'pending';
+
+      // 内容は変えられない。直したいときは、送信前に削除して書き直す
+      allow update: if false;
+
+      // 送信前（status が pending で、まだ誰にも届けていない）だけ削除できる
+      allow delete: if isAdmin()
+        && resource.data.status == 'pending'
+        && !('deliveredUids' in resource.data && resource.data.deliveredUids.size() > 0);
+    }
+
+    // ------------------------------------------------------------------
     // events/{eventId}：イベント。公開中はメンバーが、下書きは管理者だけが読める
     // ------------------------------------------------------------------
     match /events/{eventId} {

@@ -47,6 +47,14 @@ export function welcomeMail(groupName: string, siteUrl: string, nickname: string
   };
 }
 
+/** 管理者が画面で書いたメール。件名にグループ名を付け、本文の後ろに送り主を添える */
+export function adminMail(groupName: string, siteUrl: string, subject: string, body: string): Mail {
+  return {
+    subject: `【${groupName}】${subject}`,
+    text: [body.trimEnd(), '', '---', `このメールは ${groupName} の管理者が送りました。`, siteUrl, ''].join('\n'),
+  };
+}
+
 /** 理由が複数行のとき、2 行目以降を箇条書きの中にそろえる */
 function indent(text: string): string {
   return text.trim().replace(/\r?\n/g, '\n  ');

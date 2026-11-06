@@ -45,6 +45,7 @@ export function Layout() {
                 <NavLink to="/admin/events">イベント管理</NavLink>
                 <NavLink to="/admin/applications">参加申し込み</NavLink>
                 <NavLink to="/admin/members">メンバー</NavLink>
+                <NavLink to="/admin/mails">メール</NavLink>
                 {isOwner && <NavLink to="/admin/settings">設定</NavLink>}
               </>
             )}

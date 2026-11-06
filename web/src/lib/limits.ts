@@ -10,4 +10,8 @@ export const LIMITS = {
   eventAddress: 200,
   /** 定員の上限（下限は 1。定員なしは null） */
   eventCapacity: 10000,
+  mailSubject: 200,
+  mailBody: 10000,
+  /** 1 通のメールの宛先の上限（Gmail の 1 日の送信上限が約 500 通のため） */
+  mailRecipients: 500,
 } as const;
