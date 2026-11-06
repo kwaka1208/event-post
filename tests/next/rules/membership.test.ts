@@ -1,6 +1,6 @@
 // グループの作成、参加申し込み、承認、役割の変更、メンバーの削除のルール
 import { readFileSync } from 'node:fs';
-import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   assertFails,
   assertSucceeds,
@@ -24,6 +24,7 @@ import {
   deleteApplication,
   getApplication,
   listApplications,
+  listMembers,
   removeMember,
   submitApplication,
   type Application,
@@ -461,6 +462,16 @@ describe('メンバー', () => {
 
     it('管理者はほかのメンバーを読める', async () => {
       await assertSucceeds(getDoc(doc(userDb('admin'), 'members', 'member')));
+    });
+
+    it('管理者と特権管理者はメンバーの一覧を読める', async () => {
+      const members = await assertSucceeds(listMembers(userDb('admin')));
+      expect(members.map((m) => m.uid).sort()).toEqual(['admin', 'admin2', 'member', 'member2', 'owner']);
+      await assertSucceeds(listMembers(userDb('owner')));
+    });
+
+    it('参加者はメンバーの一覧を読めない', async () => {
+      await assertFails(listMembers(userDb('member')));
     });
 
     it('未登録のユーザーは自分の uid なら読める（存在しないことの確認のため）', async () => {

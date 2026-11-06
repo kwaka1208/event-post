@@ -8,6 +8,8 @@ import { RequireMember } from '@/components/RequireMember';
 import { AdminEventsPage } from '@/pages/admin/AdminEventsPage';
 import { ApplicationsPage } from '@/pages/admin/ApplicationsPage';
 import { EventEditPage, EventNewPage } from '@/pages/admin/EventEditPage';
+import { MembersPage } from '@/pages/admin/MembersPage';
+import { SettingsPage } from '@/pages/admin/SettingsPage';
 import { EventDetailPage } from '@/pages/EventDetailPage';
 import { EventsPage } from '@/pages/EventsPage';
 import { JoinPage } from '@/pages/JoinPage';
@@ -49,6 +51,8 @@ const router = createBrowserRouter(
             { path: '/admin/events', element: <AdminEventsPage /> },
             { path: '/admin/events/new', element: <EventNewPage /> },
             { path: '/admin/events/:id', element: <EventEditPage /> },
+            { path: '/admin/members', element: <MembersPage /> },
+            { path: '/admin/settings', element: <SettingsPage /> },
           ],
         },
         { path: '*', element: <NotFoundPage /> },

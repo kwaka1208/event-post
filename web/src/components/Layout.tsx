@@ -12,6 +12,7 @@ export function Layout() {
   const nickname = session?.kind === 'member' ? session.member.nickname : null;
   const isMember = session?.kind === 'member';
   const isAdmin = isMember && isAdminRole(session.member.role);
+  const isOwner = isMember && session.member.role === 'owner';
   const signedIn = session && (session.kind === 'no-group' ? !!session.user : session.kind !== 'guest');
   const email = session && 'user' in session ? session.user?.email : null;
 
@@ -43,6 +44,8 @@ export function Layout() {
               <>
                 <NavLink to="/admin/events">イベント管理</NavLink>
                 <NavLink to="/admin/applications">参加申し込み</NavLink>
+                <NavLink to="/admin/members">メンバー</NavLink>
+                {isOwner && <NavLink to="/admin/settings">設定</NavLink>}
               </>
             )}
           </nav>

@@ -566,3 +566,14 @@ ul.error {
   padding: 6px 10px;
   border: 1px solid var(--border);
 }
+.badge-self {
+  margin-left: 8px;
+  vertical-align: middle;
+}
+.notice {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--success) 12%, #fff);
+  color: var(--success);
+  font-size: 14px;
+}

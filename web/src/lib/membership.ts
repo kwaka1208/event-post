@@ -72,6 +72,24 @@ export async function getApplication(db: Firestore, uid: string): Promise<Applic
   return snap.exists() ? (snap.data() as Application) : null;
 }
 
+/** メンバーを参加日時の古い順に並べて返す（管理者だけ） */
+export async function listMembers(db: Firestore): Promise<Member[]> {
+  const snap = await getDocs(query(collection(db, 'members'), orderBy('joinedAt', 'asc')));
+  return snap.docs.map((d) => d.data() as Member);
+}
+
+/** me が target を削除できるか（ルールと同じ条件）。参加者は管理者が、管理者は特権管理者が削除できる */
+export function canRemoveMember(me: Member, target: Member): boolean {
+  if (target.role === 'owner' || target.uid === me.uid) return false;
+  if (me.role === 'owner') return true;
+  return me.role === 'admin' && target.role === 'member';
+}
+
+/** me が target の役割を変えられるか（ルールと同じ条件）。特権管理者だけが、ほかの人の役割を変えられる */
+export function canChangeRole(me: Member, target: Member): boolean {
+  return me.role === 'owner' && target.role !== 'owner';
+}
+
 /** 申し込みを申込日時の古い順に並べて返す（管理者だけ） */
 export async function listApplications(db: Firestore): Promise<Application[]> {
   const snap = await getDocs(query(collection(db, 'applications'), orderBy('createdAt', 'asc')));
