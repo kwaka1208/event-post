@@ -4,7 +4,7 @@
 
 ## 進め方の約束
 
-- 作業は `redesign` ブランチで行う。2026-11-06 に、それまでの内容を main に反映した
+- 作業は `main` を最新として進める。2026-11-06 に `redesign` の内容を main に統合した。`redesign` ブランチはその時点で止めてあり、もう使わない
 - 段階ごとに、作業計画を示して確認を取ってから実装する
 - 段階が終わったら、確かめた内容を報告する。コミットは確認を取ってから行う
 - 指示されていないファイルは変えない。旧版（`app/`、`site/`、`scripts/`、`tests/` の `next/` 以外）は、段階 8 まで触らない
@@ -14,7 +14,7 @@
 | 段階 | 状態 | コミット |
 |---|---|---|
 | 1. `web/` に SPA の骨組み、Firebase Hosting の設定 | 完了。のちに GitHub Pages 用に変更 | `af3c1eb` |
-| 1'. 配信先を GitHub Pages に変更し、main に反映 | 完了 | このコミット |
+| 1'. 配信先を GitHub Pages に変更し、main に統合。CI に新版の確認を追加 | 完了 | `5193916`、このコミット |
 | 2. Firestore のルールとテスト（グループ、`members`、`applications`、承認） | 完了 | `0fc9659` |
 | 3. トップページ、ログイン、`/setup`、`/join`、画面の振り分け | 完了 | `fa7b04c` |
 | 4-A. 申し込み一覧（`/admin/applications`）、管理者用のナビ | 完了 | `2ecfe0e` |
@@ -69,7 +69,7 @@
 ## 開発環境のメモ
 
 - 新しいルールは `firebase/firestore.next.rules`、エミュレーターの設定は `firebase/firebase.next.json`（Auth は 9199、Firestore は 8180）。段階 8 で、旧版の `firestore.rules` と `firebase.json` と入れ替える
-- main の CI（`ci.yml`）は、新版のうち `tests/next/unit` しか実行しない（`npm test` に含まれるため）。`web:check`、`web:build`、`test:next-rules` を CI に足すかは未定
+- CI（`ci.yml`）は、旧版の確認に加えて、新版の `web:check`、`web:build`、`test:next-rules` も実行する
 - テストの置き場所
   - ルール：`tests/next/rules/`（`npm run test:next-rules`）
   - 通知メール：`tests/next/notify/`（`npm run test:next-rules` に含まれる）
