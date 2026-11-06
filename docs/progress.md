@@ -16,13 +16,14 @@
 | 1. `web/` に SPA の骨組み、Firebase Hosting の設定 | 完了 | `af3c1eb` |
 | 2. Firestore のルールとテスト（グループ、`members`、`applications`、承認） | 完了 | `0fc9659` |
 | 3. トップページ、ログイン、`/setup`、`/join`、画面の振り分け | 完了 | `fa7b04c` |
-| 4-A. 申し込み一覧（`/admin/applications`）、管理者用のナビ | 完了 | このコミット |
-| 4-B. 通知メール（申請・承認）。`scripts/next/` | **次はここ**。詳しい計画を示すところから | |
-| 5〜8 | 未着手 | |
+| 4-A. 申し込み一覧（`/admin/applications`）、管理者用のナビ | 完了 | `2ecfe0e` |
+| 4-B. 通知メール（申請・承認）。`scripts/next/` | 完了 | このコミット |
+| 5. イベントの作成・編集、一覧・詳細、申込とキャンセル | **次はここ**。作業計画を示すところから | |
+| 6〜8 | 未着手 | |
 
 ## 段階 4 の計画
 
-4-A（画面）は完了。4-B（通知メール）は、以下をもとに詳しい計画を示して確認を取る。
+4-A（画面）と 4-B（通知メール）は完了。
 
 - **画面**：`/admin/applications`
   - 申し込みを申込日時の順に並べる（本名、ニックネーム、メールアドレス、理由、申込日時）
@@ -42,16 +43,28 @@
   - 返信先（Reply-To）は環境変数 `REPLY_TO` で指定する
   - SMTP は環境変数 `SMTP_USER`、`SMTP_PASSWORD`、`SMTP_HOST`（既定 `smtp.gmail.com`）、`SMTP_PORT`（既定 465）。差出人名は `group/profile` のグループ名
   - 旧版の `scripts/lib/smtp.ts` は `site/config.yml` に依存するので、import せず書き写して流用する
+- **4-B の仕様**（`npm run notify:next`、`--dry-run` で送らずに内容を表示する）
+  - 環境変数：`SITE_URL`、`SMTP_USER`、`SMTP_PASSWORD` は必須。`SMTP_HOST` の既定は `smtp.gmail.com`、`SMTP_PORT` の既定は 465。`REPLY_TO` は省略できる
+  - 接続先：`FIRESTORE_EMULATOR_HOST` があれば `demo-event-post`、なければ `GOOGLE_CLOUD_PROJECT`
+  - 申し込みの通知：その回の新しい申し込みをまとめて、管理者（`owner` と `admin`）1 人につき 1 通送る。1 人にでも届けば `notifiedAt` を書く
+  - 承認の通知：`welcomedAt` がなく、`role != 'owner'` のメンバーに送る
+  - 送信：3 回続けて失敗したら止める。失敗があれば終了コード 1 で終わる。ログには名前やメールアドレスを出さない
+  - テスト：文面は `tests/next/unit/messages.test.ts`、送信の流れは `tests/next/notify/`（`npm run test:next-rules` に含まれる）
+- **段階 8 でやること（4-B から）**
+  - ワークフロー（`notify.yml`）に上の環境変数を渡す
+  - 最初に本番で動かすと、`welcomedAt` がない既存メンバー全員に承認の通知が届く。本番ではまだ誰も承認されていないので問題はないが、念のため確かめる
 
 ## 開発環境のメモ
 
 - 新しいルールは `firebase/firestore.next.rules`、エミュレーターの設定は `firebase/firebase.next.json`（Auth は 9199、Firestore は 8180）。段階 8 で、旧版の `firestore.rules` と `firebase.json` と入れ替える
 - テストの置き場所
   - ルール：`tests/next/rules/`（`npm run test:next-rules`）
+  - 通知メール：`tests/next/notify/`（`npm run test:next-rules` に含まれる）
   - 単体：`tests/next/unit/`（`npm test` に含まれる）
 - 画面の確認：`npm run emulators:next` と `npx vite --config web/vite.config.ts --port 5179` を起動する
   - エミュレーターのデータを消すとき：`curl -X DELETE "http://127.0.0.1:8180/emulator/v1/projects/demo-event-post/databases/(default)/documents"`
 - この端末では `java` に PATH が通っていない。エミュレーターを使うコマンドの前に `export PATH="/opt/homebrew/opt/openjdk@21/bin:$PATH"` を付ける
+- `scripts/` 用の tsconfig はない。型チェックは一時的な tsconfig（`strict`、`moduleResolution: Bundler`、`types: ["node"]`、対象は `scripts/next/notify.ts` と `tests/next/**`）で行う
 - ポート 8080 では、利用者が旧版のエミュレーターを動かしていることがある。止めたり、データを消したりしない
 - Chrome での確認：ログインのポップアップは別ウィンドウで開くため、拡張機能からは操作できない。ページ上の JavaScript で、エミュレーターのテスト用アカウントでログインする
 
