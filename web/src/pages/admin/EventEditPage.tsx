@@ -10,6 +10,7 @@ import { createEvent, deleteEvent, getEvent, updateEvent, type EventDoc, type Ev
 import { db } from '@/lib/firebase';
 import { LIMITS } from '@/lib/limits';
 import { adminEventsKey } from './adminEventsKey';
+import { Registrants } from './Registrants';
 
 export function EventNewPage() {
   return <EventForm event={null} />;
@@ -141,6 +142,7 @@ function EventForm({ event }: { event: EventDoc | null }) {
         </div>
       </form>
 
+      {event && <Registrants eventId={event.id} />}
       {event && <DeleteSection event={event} />}
     </main>
   );

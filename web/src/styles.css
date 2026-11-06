@@ -44,7 +44,7 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-body);
-  font-size: 15px;
+  font-size: 16px; /* 本文の標準 */
   line-height: 1.75;
 }
 
@@ -440,7 +440,6 @@ a:hover {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  font-size: 15px;
 }
 .checkbox input {
   width: 20px;
@@ -454,4 +453,116 @@ a:hover {
 ul.error {
   margin: 0;
   padding-left: 28px;
+}
+.badge-done {
+  background: color-mix(in srgb, var(--success) 14%, #fff);
+  color: var(--success);
+}
+.badge-few {
+  background: var(--few-bg);
+  color: var(--few-text);
+}
+.list-heading {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 18px;
+}
+.stack-lg {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.back {
+  margin: 0;
+  font-size: 14px;
+}
+.address {
+  display: block;
+  color: var(--text-sub);
+  font-size: 14px;
+}
+.done {
+  color: var(--success);
+  font-weight: 700;
+}
+.registrants {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding-left: 24px;
+}
+
+/* 本文（Markdown） */
+.markdown {
+  overflow-wrap: anywhere;
+}
+.markdown > :first-child {
+  margin-top: 0;
+}
+.markdown > :last-child {
+  margin-bottom: 0;
+}
+.markdown h1,
+.markdown h2,
+.markdown h3 {
+  margin: 1.6em 0 0.6em;
+  font-family: var(--font-heading);
+  line-height: 1.4;
+}
+.markdown h1 {
+  font-size: 22px;
+}
+.markdown h2 {
+  font-size: 20px;
+}
+.markdown h3 {
+  font-size: 17px;
+}
+.markdown p,
+.markdown ul,
+.markdown ol,
+.markdown blockquote,
+.markdown pre,
+.markdown table {
+  margin: 0 0 1em;
+}
+.markdown ul,
+.markdown ol {
+  padding-left: 1.5em;
+}
+.markdown blockquote {
+  padding-left: 12px;
+  border-left: 4px solid var(--border);
+  color: var(--text-sub);
+}
+.markdown code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--disabled-bg);
+  font-size: 0.9em;
+}
+.markdown pre {
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--disabled-bg);
+  overflow-x: auto;
+}
+.markdown pre code {
+  padding: 0;
+  background: none;
+}
+.markdown img {
+  max-width: 100%;
+  height: auto;
+}
+.markdown table {
+  display: block;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+.markdown th,
+.markdown td {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
 }

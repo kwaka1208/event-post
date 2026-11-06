@@ -78,6 +78,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     queryClient.removeQueries({ queryKey: ['member'] });
     queryClient.removeQueries({ queryKey: ['application'] });
     queryClient.removeQueries({ queryKey: ['admin'] });
+    queryClient.removeQueries({ queryKey: ['events'] });
   }, [queryClient]);
 
   const refresh = useCallback(async () => {

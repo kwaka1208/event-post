@@ -27,6 +27,14 @@ service cloud.firestore {
       return /databases/$(database)/documents/applications/$(uid);
     }
 
+    function eventPath(eventId) {
+      return /databases/$(database)/documents/events/$(eventId);
+    }
+
+    function registrationPath(eventId, uid) {
+      return /databases/$(database)/documents/events/$(eventId)/registrations/$(uid);
+    }
+
     function isMember() {
       return signedIn() && exists(memberPath(request.auth.uid));
     }
@@ -180,17 +188,34 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time;
 
-      // 管理者の編集。申込数と作成日時は変えられない。定員は今の申込数より少なくできない。
-      // Actions（Admin SDK）がメールの送信日時などを書き足しても編集できるよう、変える項目だけを確かめる
-      allow update: if isAdmin()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(editableEventKeys())
-        && validEvent(request.resource.data)
-        && request.resource.data.updatedAt == request.time
-        && (request.resource.data.capacity == null
-          || request.resource.data.capacity >= resource.data.registrationCount);
+      // 管理者の編集か、申込・キャンセルに合わせた申込数の ±1
+      allow update: if isEditingEvent() || isCountingRegistration(eventId);
 
       // 申込がないイベントだけ削除できる。申込があるときは下書きに戻す
       allow delete: if isAdmin() && resource.data.registrationCount == 0;
+
+      // 管理者の編集。申込数と作成日時は変えられない。定員は今の申込数より少なくできない。
+      // Actions（Admin SDK）がメールの送信日時などを書き足しても編集できるよう、変える項目だけを確かめる
+      function isEditingEvent() {
+        return isAdmin()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(editableEventKeys())
+          && validEvent(request.resource.data)
+          && request.resource.data.updatedAt == request.time
+          && (request.resource.data.capacity == null
+            || request.resource.data.capacity >= resource.data.registrationCount);
+      }
+
+      // 申込数だけを ±1 する。同じ書き込みで、自分の申込を作る（+1）か消す（-1）ときだけ。
+      // 公開中か、締切、定員、キャンセルの期限は registrations のルールで確かめる
+      function isCountingRegistration(eventId) {
+        let before = resource.data.registrationCount;
+        let after = request.resource.data.registrationCount;
+        let reg = registrationPath(eventId, request.auth.uid);
+        return signedIn()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['registrationCount'])
+          && ((after == before + 1 && !exists(reg) && existsAfter(reg))
+            || (after == before - 1 && exists(reg) && !existsAfter(reg)));
+      }
 
       function eventKeys() {
         return ['title', 'body', 'startAt', 'endAt', 'deadlineAt', 'venue', 'address', 'capacity',
@@ -216,6 +241,52 @@ service cloud.firestore {
           && (d.capacity == null || (d.capacity is int && d.capacity >= 1 && d.capacity <= 10000))
           && d.published is bool;
       }
+
+      // ----------------------------------------------------------------
+      // events/{eventId}/registrations/{uid}：イベントへの申込（ドキュメント ID は申込者の uid）
+      // ----------------------------------------------------------------
+      match /registrations/{uid} {
+        // 本人と管理者。管理者は申込者の一覧を読む
+        allow read: if (signedIn() && request.auth.uid == uid) || isAdmin();
+
+        // メンバー本人が、公開中で締切前のイベントに申し込む。申込数の +1 と同時に書き、定員を超えない
+        allow create: if signedIn()
+          && request.auth.uid == uid
+          && isMember()
+          && validRegistration(uid, request.resource.data)
+          && get(eventPath(eventId)).data.published == true
+          && request.time < get(eventPath(eventId)).data.deadlineAt
+          && getAfter(eventPath(eventId)).data.registrationCount == get(eventPath(eventId)).data.registrationCount + 1
+          && (get(eventPath(eventId)).data.capacity == null
+            || getAfter(eventPath(eventId)).data.registrationCount <= get(eventPath(eventId)).data.capacity);
+
+        allow update: if false;
+
+        // 本人のキャンセル。開始日時まで。申込数の -1 と同時に書く
+        allow delete: if signedIn()
+          && request.auth.uid == uid
+          && request.time < get(eventPath(eventId)).data.startAt
+          && getAfter(eventPath(eventId)).data.registrationCount == get(eventPath(eventId)).data.registrationCount - 1;
+
+        // 名前とメールアドレスは、自分の members の内容を写す
+        function validRegistration(uid, d) {
+          let me = get(memberPath(uid)).data;
+          return exactKeys(d, ['uid', 'realName', 'nickname', 'email', 'createdAt'])
+            && d.uid == uid
+            && d.realName == me.realName
+            && d.nickname == me.nickname
+            && d.email == me.email
+            && d.createdAt == request.time;
+        }
+      }
+    }
+
+    // ------------------------------------------------------------------
+    // registrations の collectionGroup 検索：マイページで自分の申込を探す。
+    // where('uid', '==', 自分の uid) で絞り込んで読む
+    // ------------------------------------------------------------------
+    match /{path=**}/registrations/{uid} {
+      allow read: if signedIn() && resource.data.uid == request.auth.uid;
     }
   }
 }
