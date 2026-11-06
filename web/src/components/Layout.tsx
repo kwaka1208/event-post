@@ -37,6 +37,7 @@ export function Layout() {
         {isAdmin && (
           <nav className="inner admin-nav" aria-label="管理">
             <NavLink to="/events">イベント</NavLink>
+            <NavLink to="/admin/events">イベント管理</NavLink>
             <NavLink to="/admin/applications">参加申し込み</NavLink>
           </nav>
         )}

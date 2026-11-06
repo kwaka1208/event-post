@@ -8,9 +8,11 @@ interface Props {
   required?: boolean;
   multiline?: boolean;
   help?: string;
+  /** multiline のときの行数 */
+  rows?: number;
 }
 
-export function TextField({ label, value, onChange, maxLength, required = false, multiline = false, help }: Props) {
+export function TextField({ label, value, onChange, maxLength, required = false, multiline = false, help, rows = 4 }: Props) {
   const id = useId();
   const helpId = help ? `${id}-help` : undefined;
   const common = {
@@ -27,7 +29,7 @@ export function TextField({ label, value, onChange, maxLength, required = false,
         {label}
         {required && <span className="tag">必須</span>}
       </label>
-      {multiline ? <textarea className="input textarea" rows={4} {...common} /> : <input className="input" type="text" {...common} />}
+      {multiline ? <textarea className="input textarea" rows={rows} {...common} /> : <input className="input" type="text" {...common} />}
       {help && (
         <span className="help" id={helpId}>
           {help}

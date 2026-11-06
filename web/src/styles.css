@@ -408,3 +408,50 @@ a:hover {
 .pre-wrap {
   white-space: pre-wrap;
 }
+
+/* ---------------------------------------------------------------- イベント */
+
+.card-link {
+  color: inherit;
+  text-decoration: none;
+}
+.card-link:hover {
+  border-color: var(--accent);
+  color: inherit;
+}
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent-light);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+}
+.badge-draft {
+  background: var(--disabled-bg);
+  color: var(--disabled-text);
+}
+.checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 15px;
+}
+.checkbox input {
+  width: 20px;
+  height: 20px;
+  margin: 2px 0 0;
+  flex: 0 0 auto;
+}
+.input-short {
+  max-width: 10em;
+}
+ul.error {
+  margin: 0;
+  padding-left: 28px;
+}

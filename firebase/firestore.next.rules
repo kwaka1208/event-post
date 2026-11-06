@@ -164,5 +164,58 @@ service cloud.firestore {
           && d.createdAt == request.time;
       }
     }
+
+    // ------------------------------------------------------------------
+    // events/{eventId}：イベント。公開中はメンバーが、下書きは管理者だけが読める
+    // ------------------------------------------------------------------
+    match /events/{eventId} {
+      // メンバーが一覧を読むときは where('published', '==', true) で絞り込む（ルールが通るように）
+      allow read: if isAdmin() || (isMember() && resource.data.published == true);
+
+      // 申込数（registrationCount）は 0 から始める
+      allow create: if isAdmin()
+        && exactKeys(request.resource.data, eventKeys())
+        && validEvent(request.resource.data)
+        && request.resource.data.registrationCount == 0
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+
+      // 管理者の編集。申込数と作成日時は変えられない。定員は今の申込数より少なくできない。
+      // Actions（Admin SDK）がメールの送信日時などを書き足しても編集できるよう、変える項目だけを確かめる
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(editableEventKeys())
+        && validEvent(request.resource.data)
+        && request.resource.data.updatedAt == request.time
+        && (request.resource.data.capacity == null
+          || request.resource.data.capacity >= resource.data.registrationCount);
+
+      // 申込がないイベントだけ削除できる。申込があるときは下書きに戻す
+      allow delete: if isAdmin() && resource.data.registrationCount == 0;
+
+      function eventKeys() {
+        return ['title', 'body', 'startAt', 'endAt', 'deadlineAt', 'venue', 'address', 'capacity',
+          'published', 'registrationCount', 'createdAt', 'updatedAt'];
+      }
+
+      function editableEventKeys() {
+        return ['title', 'body', 'startAt', 'endAt', 'deadlineAt', 'venue', 'address', 'capacity',
+          'published', 'updatedAt'];
+      }
+
+      // 締切は開始日時まで。定員は null（定員なし）か 1〜10000
+      function validEvent(d) {
+        return text(d.title, 1, 100)
+          && text(d.body, 0, 10000)
+          && d.startAt is timestamp
+          && d.endAt is timestamp
+          && d.deadlineAt is timestamp
+          && d.endAt > d.startAt
+          && d.deadlineAt <= d.startAt
+          && text(d.venue, 1, 100)
+          && text(d.address, 0, 200)
+          && (d.capacity == null || (d.capacity is int && d.capacity >= 1 && d.capacity <= 10000))
+          && d.published is bool;
+      }
+    }
   }
 }
