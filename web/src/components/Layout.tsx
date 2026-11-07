@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { Link, NavLink, Outlet } from 'react-router';
+import { Loading } from '@/components/Status';
 import { isAdminRole } from '@/lib/membership';
 import { useSession } from '@/session/SessionProvider';
 
@@ -53,7 +54,9 @@ export function Layout() {
         )}
       </header>
 
-      <Outlet />
+      <Suspense fallback={<Loading />}>
+        <Outlet />
+      </Suspense>
 
       <footer className="site-footer">
         <div className="inner">

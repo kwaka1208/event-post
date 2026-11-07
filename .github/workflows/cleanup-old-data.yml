@@ -1,0 +1,44 @@
+# 旧版（Astro 版）から新版へ移るときに、Firestore に残った旧版のデータ（イベントとその申込、管理者の一覧）を消す。
+# 手動で 1 回だけ実行する。最初は dry_run のまま実行して、消す件数をログで確かめる。手順は UPDATING.md を見る。
+name: Clean up old data
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 消さずに、消す予定の件数だけをログに出す
+        type: boolean
+        default: true
+
+permissions: {}
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: セットアップが済んでいるか確かめる
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "::error::Secret の FIREBASE_SERVICE_ACCOUNT が登録されていません"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - uses: google-github-actions/auth@v3
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      - name: 旧版のデータを消す
+        run: npm run cleanup:old -- ${{ inputs.dry_run && '--dry-run' || '' }}

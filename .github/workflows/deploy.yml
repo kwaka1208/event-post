@@ -1,5 +1,5 @@
-# main への push で、Firestore（ルール・インデックス・イベントの写し）を更新してから GitHub Pages に公開する。
-# 同期をページ公開より先に行い、新しいイベントのページが出た時点で Firestore 側が準備済みであるようにする。
+# main への push で、Firestore のルールとインデックスを反映してから、画面（web/）をビルドして GitHub Pages に公開する。
+# ルールを画面より先に反映し、新しい画面が出た時点で Firestore 側が準備済みであるようにする。
 name: Deploy
 
 on:
@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Secrets を登録する前（テンプレートそのものや、作った直後のリポジトリ）は、失敗させずに何もしない
+  # Secrets と Variables を登録する前（テンプレートそのものや、作った直後のリポジトリ）は、失敗させずに何もしない
   setup:
     runs-on: ubuntu-latest
     permissions: {}
@@ -23,14 +23,25 @@ jobs:
         id: check
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FIREBASE_API_KEY: ${{ vars.FIREBASE_API_KEY }}
+          FIREBASE_AUTH_DOMAIN: ${{ vars.FIREBASE_AUTH_DOMAIN }}
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          FIREBASE_APP_ID: ${{ vars.FIREBASE_APP_ID }}
         run: |
-          if [ -n "$FIREBASE_SERVICE_ACCOUNT" ]; then
+          missing=()
+          [ -n "$FIREBASE_SERVICE_ACCOUNT" ] || missing+=("Secret の FIREBASE_SERVICE_ACCOUNT")
+          for name in FIREBASE_API_KEY FIREBASE_AUTH_DOMAIN FIREBASE_PROJECT_ID FIREBASE_APP_ID; do
+            [ -n "${!name}" ] || missing+=("Variable の $name")
+          done
+          if [ ${#missing[@]} -eq 0 ]; then
             echo "ready=true" >> "$GITHUB_OUTPUT"
           else
             echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Secret の FIREBASE_SERVICE_ACCOUNT が登録されていないため、デプロイしませんでした。README のセットアップ手順を確かめてください"
+            list=$(printf '%s、' "${missing[@]}")
+            list=${list%、}
+            echo "::warning::${list} が登録されていないため、デプロイしませんでした。README のセットアップ手順を確かめてください"
             echo "### セットアップが終わっていないため、デプロイしませんでした" >> "$GITHUB_STEP_SUMMARY"
-            echo "Secret の \`FIREBASE_SERVICE_ACCOUNT\` を登録すると、次の push からデプロイします。README のセットアップ手順を確かめてください。" >> "$GITHUB_STEP_SUMMARY"
+            echo "登録されていないもの：${list}。登録すると、次の push からデプロイします。README のセットアップ手順を確かめてください。" >> "$GITHUB_STEP_SUMMARY"
           fi
 
   build:
@@ -39,6 +50,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      pages: read # configure-pages
     steps:
       - uses: actions/checkout@v7
 
@@ -49,41 +61,31 @@ jobs:
 
       - run: npm ci
 
-      - name: config.yml とイベントを検証
-        run: npm run validate
-
-      - name: Firebase のプロジェクト ID を読む
-        id: config
-        run: |
-          node --input-type=module -e "
-            import { readFileSync } from 'node:fs';
-            import { parse } from 'yaml';
-            console.log('project_id=' + parse(readFileSync('site/config.yml', 'utf8')).firebase.projectId);
-          " >> "$GITHUB_OUTPUT"
-
-      # サービスアカウントの JSON から Application Default Credentials を作る（firebase-tools と Admin SDK が使う）
+      # サービスアカウントの JSON から Application Default Credentials を作る（firebase-tools が使う）
       - uses: google-github-actions/auth@v3
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
       - name: Firestore のルールとインデックスをデプロイ
-        run: npx firebase deploy --only firestore --config firebase/firebase.json --project "${{ steps.config.outputs.project_id }}" --non-interactive
-
-      - name: イベントと管理者を Firestore に同期
-        run: npm run sync
+        run: npx firebase deploy --only firestore --config firebase/firebase.next.json --project "${{ vars.FIREBASE_PROJECT_ID }}" --non-interactive
 
       - name: GitHub Pages の設定を読む
         id: pages
         uses: actions/configure-pages@v6
 
-      - name: サイトをビルド
-        run: npm run build
+      # Firebase の Web 設定は公開してよい値。ビルドした JS に埋め込む（web/src/lib/firebase.ts）
+      - name: 画面をビルド
+        run: npm run web:build
         env:
-          PAGES_BASE_URL: ${{ steps.pages.outputs.base_url }}
+          BASE_PATH: ${{ steps.pages.outputs.base_path }}
+          VITE_FIREBASE_API_KEY: ${{ vars.FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_APP_ID: ${{ vars.FIREBASE_APP_ID }}
 
       - uses: actions/upload-pages-artifact@v5
         with:
-          path: app/dist
+          path: web/dist
 
   deploy:
     needs: build

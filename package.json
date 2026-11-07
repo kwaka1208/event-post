@@ -19,6 +19,7 @@
     "sync": "tsx scripts/sync-firestore.ts",
     "notify": "tsx scripts/notify.ts",
     "notify:next": "tsx scripts/next/notify.ts",
+    "cleanup:old": "tsx scripts/next/cleanup-old.ts",
     "test": "vitest run",
     "emulators": "firebase emulators:start --config firebase/firebase.json --project demo-event-post --only auth,firestore",
     "emulators:next": "firebase emulators:start --config firebase/firebase.next.json --project demo-event-post --only auth,firestore",

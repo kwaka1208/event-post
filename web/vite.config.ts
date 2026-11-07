@@ -31,5 +31,11 @@ export default defineConfig({
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
-  build: { outDir, emptyOutDir: true },
+  build: {
+    outDir,
+    emptyOutDir: true,
+    // 画面はページごとに分けて読み込む（web/src/main.tsx）。最も大きいのは Firebase の SDK（Auth と Firestore で
+    // 約 680KB）で、トップページでも使うため分けられない。それ以外の塊が大きくなったら気づけるよう、上限はその少し上にする
+    chunkSizeWarningLimit: 700,
+  },
 });

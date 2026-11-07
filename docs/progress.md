@@ -24,9 +24,9 @@
 | 6. マイページ（`/me`）、メンバー用のナビ | 完了 | `64676db` |
 | 7-A. メンバー管理（`/admin/members`）、グループの設定（`/admin/settings`） | 完了 | `733e645` |
 | 7-B. メンバーへのメール（`mails`、画面、送信スクリプト） | 完了 | `e1e362b` |
-| 8-A. 受付メールとリマインド | 完了 | このコミット |
-| 8-B. デプロイの切り替え（`deploy.yml`、`notify.yml`）、画面ごとのコード分割 | **次はここ** | |
-| 8-C. 旧版の削除、名前の整理、README・UPDATING、`v1` のタグ | 未着手 | |
+| 8-A. 受付メールとリマインド | 完了 | `4e4406a` |
+| 8-B. デプロイの切り替え（`deploy.yml`、`notify.yml`）、旧版のデータを消すワークフロー、画面ごとのコード分割 | 完了 | このコミット |
+| 8-C. 旧版の削除、名前の整理、README・UPDATING | **次はここ** | |
 
 ## 段階 5 の計画
 
@@ -102,13 +102,20 @@
   - 受付メールは常に送る。リマインドは開催前日の 18 時（日本時間）から。Variables の `REMINDER_HOUR`（0〜23）で変えられる
   - Firebase の Web 設定は、リポジトリの Variables（`FIREBASE_API_KEY`、`FIREBASE_AUTH_DOMAIN`、`FIREBASE_PROJECT_ID`、`FIREBASE_APP_ID`）に置く
   - 旧版のデータ（`events` とその申込、`config/admins`）は、手動で実行するワークフローで消す（`--dry-run` で件数を確かめられる）。旧版の申込の記録は消える
-  - 8-C を main に入れる直前に、旧版の最後のコミットにタグ `v1` を付ける。派生リポジトリには、PR の説明と `UPDATING.md` で移行の準備を伝える
+  - 旧版の最後のコミットにタグ `v1` を付ける。派生リポジトリには、PR の説明と `UPDATING.md` で移行の準備を伝える。デプロイを新版に切り替えるのは 8-B なので、タグは 8-B を main に入れる前（旧版として最後に動く `4e4406a`）に付ける
 - **8-A でやったこと**
   - `scripts/next/lib/notify.ts`：承認の通知のあと、管理者のメールの前に、開始前の公開中のイベントの申込者へ送る。受付メールは `confirmedAt`、リマインドは `remindedAt` を申込に記録する（Actions だけが書く。キャンセルした人は申込が消えているので送らない）。リマインドの時間帯（前日の指定の時刻〜開催日の 0 時）は旧版と同じ。その時間帯に申し込んだ人には、受付メールとリマインドを続けて送る
   - 日本時間の計算と表示は `scripts/next/lib/time.ts`（旧版の `app/src/lib/time.ts` から必要な分を書き写した）
   - 文面は `confirmationMail`・`reminderMail`（イベント名、日時、会場、住所、詳細ページの URL、キャンセルの期限）。`--dry-run` では、イベントの内容で見本を出す（名前は伏せる）
   - 環境変数 `REMINDER_HOUR`（省略すると 18。範囲外ならエラーで止める）
   - テスト：送信の流れ 8 件、日本時間 9 件、文面 3 件を足した
+
+- **8-B でやったこと**
+  - `deploy.yml`：新版用に書き直した。Firestore のルールとインデックス（`firebase.next.json`）を反映してから、`web/` をビルドして Pages に公開する。`BASE_PATH` は `actions/configure-pages` の `base_path`、Firebase の Web 設定は Variables から `VITE_FIREBASE_*` で渡す。Secret の `FIREBASE_SERVICE_ACCOUNT` と 4 つの Variables のどれかがなければ、足りないものを名前で知らせて、何もしない。旧版の同期（`npm run sync`）はなくなった
+  - `notify.yml`：`npm run notify:next` に切り替えた。`SITE_URL` は `configure-pages` の `base_url`。Variables の `SMTP_HOST`、`SMTP_PORT`、`REPLY_TO`、`REMINDER_HOUR` を渡す（空なら既定の値）。旧版の件数の補正と古い申込の削除はなくなった
+  - `cleanup-old-data.yml`（Clean up old data）：手動で実行し、旧版のデータを消す（`npm run cleanup:old`、`scripts/next/cleanup-old.ts`）。`dry_run` が既定。旧版のイベントは `registrationCount` を持たないことで見分け、申込ごと消す。`config/admins` も消す。新版のデータには触らない（テスト 4 件）
+  - 画面ごとのコード分割：トップと「見つかりません」以外のページを `React.lazy` で読み込み、`Layout` の `Suspense` で読み込み中を出す。最初に読み込む JS は 1,044KB → 917KB（`index` 239KB、Firebase の SDK 678KB）。Markdown の表示（約 83KB）は詳細画面だけで読む。警告の上限は 700KB にした（Firebase の SDK が分けられないため）。さらに小さくするなら `firebase/firestore/lite` に替える案があるが、ルールのテストの作りも変わるので見送った
+  - 本番での確かめ（Firebase への実際のデプロイ、SMTP での送信）は、まだできていない
 
 ## 配信先を GitHub Pages に変えたこと（2026-11-06）
 

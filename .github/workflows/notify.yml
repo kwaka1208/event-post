@@ -1,4 +1,4 @@
-# 毎時、受付メールとリマインドを送り、件数の補正と古い申込データの削除を行う（scripts/notify.ts）。
+# 毎時、参加申し込みと承認の通知、受付メールとリマインド、管理者が画面で書いたメールを送る（scripts/next/notify.ts）。
 # 手動実行で dry_run を選ぶと、送信も書き込みもせず、送る予定の内容をログに出す。
 name: Notify
 
@@ -62,17 +62,22 @@ jobs:
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
-      # メール中のイベントページの URL に使う
+      # メールに載せるサイトの URL に使う
       - name: GitHub Pages の設定を読む
         id: pages
         uses: actions/configure-pages@v6
 
       - name: メールを送る
-        run: npm run notify -- ${{ inputs.dry_run && '--dry-run' || '' }}
+        run: npm run notify:next -- ${{ inputs.dry_run && '--dry-run' || '' }}
         env:
-          PAGES_BASE_URL: ${{ steps.pages.outputs.base_url }}
+          SITE_URL: ${{ steps.pages.outputs.base_url }}
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          # 以下は Variables。登録しなければ既定の値（smtp.gmail.com、465、返信先なし、18 時）
+          SMTP_HOST: ${{ vars.SMTP_HOST }}
+          SMTP_PORT: ${{ vars.SMTP_PORT }}
+          REPLY_TO: ${{ vars.REPLY_TO }}
+          REMINDER_HOUR: ${{ vars.REMINDER_HOUR }}
 
       # 公開リポジトリで 60 日間コミットがないと、schedule のワークフローは自動で無効になる。
       # イベントが空く期間にリマインドが黙って止まらないよう、毎回ワークフロー自身を有効にし直す。
