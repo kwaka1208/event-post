@@ -1,4 +1,4 @@
-// 入力の文字数などの上限（firebase/firestore.next.rules と合わせる）
+// 入力の文字数などの上限（firebase/firestore.rules と合わせる）
 export const LIMITS = {
   groupName: 100,
   groupDescription: 2000,

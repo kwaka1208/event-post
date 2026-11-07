@@ -1,5 +1,4 @@
-# PR と push で、検証・型チェック・単体テスト・ルールのテスト（エミュレーター）を実行する。
-# 再設計版（web/、scripts/next/、tests/next/）の型チェック・ビルド・ルールと通知のテストも含む。
+# PR と push で、型チェック・単体テスト・ビルド・ルールとスクリプトのテスト（エミュレーター）を実行する。
 name: CI
 
 on:
@@ -34,23 +33,14 @@ jobs:
 
       - run: npm ci
 
-      - name: config.yml とイベントを検証
-        run: npm run validate
-
-      - name: 型チェック
+      - name: 型チェック（画面とスクリプト）
         run: npm run check
 
       - name: 単体テスト
         run: npm test
 
-      - name: ルールと同期のテスト（エミュレーター）
+      - name: ビルド
+        run: npm run build
+
+      - name: ルールとスクリプトのテスト（エミュレーター）
         run: npm run test:rules
-
-      - name: 再設計版の型チェック
-        run: npm run web:check
-
-      - name: 再設計版のビルド
-        run: npm run web:build
-
-      - name: 再設計版のルールと通知のテスト（エミュレーター）
-        run: npm run test:next-rules

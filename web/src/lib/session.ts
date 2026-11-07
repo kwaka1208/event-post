@@ -1,5 +1,5 @@
 // ログイン状態の判定。どの画面を見せるかは、ここで決めた状態だけをもとに決める。
-// 画面側の振り分けは見せ方の都合で、読み書きできる範囲はルール（firebase/firestore.next.rules）が決める。
+// 画面側の振り分けは見せ方の都合で、読み書きできる範囲はルール（firebase/firestore.rules）が決める。
 import type { GroupProfile } from './group';
 import type { Application, Member, SignedInUser } from './membership';
 

@@ -1,5 +1,5 @@
 # テンプレートから作ったリポジトリで、元のリポジトリ（kwaka1208/event-post）の本体を取り込む PR を作る。
-# site/ と、.eventpost-keep に書いたパスはそのまま残し、それ以外を元のリポジトリと同じにする。
+# site/（旧版の設定）と、.eventpost-keep に書いたパスはそのまま残し、それ以外を元のリポジトリと同じにする。
 # 元のリポジトリそのものでは動かない。手順は UPDATING.md を見る。
 name: Update EventPost
 
@@ -74,6 +74,10 @@ jobs:
           exclude=()
           for k in "${keep[@]}"; do exclude+=(":(top,exclude)$k"); done
 
+          # 旧版（app/ がある）から新版（app/ がない）への切り替えかどうか。PR の説明で移行の準備を促す
+          migrating=false
+          if [ -d app ] && ! git cat-file -e "$new_sha:app" 2>/dev/null; then migrating=true; fi
+
           # 元で消えたファイルも消えるよう、本体を消してから元の版で置き換える
           git rm -r -q --ignore-unmatch -- . "${exclude[@]}"
           git checkout "$new_sha" -- . "${exclude[@]}"
@@ -102,6 +106,7 @@ jobs:
             echo "changed=true"
             echo "sha=$new_sha"
             echo "changes=$changes"
+            echo "migrating=$migrating"
           } >> "$GITHUB_OUTPUT"
           echo "$UPSTREAM@${new_sha:0:7} を取り込むブランチ \`$UPDATE_BRANCH\` を作りました" >> "$GITHUB_STEP_SUMMARY"
           git show --stat --format= HEAD | tail -1 >> "$GITHUB_STEP_SUMMARY"
@@ -112,6 +117,7 @@ jobs:
           GH_TOKEN: ${{ secrets.EVENTPOST_UPDATE_TOKEN }}
           SHA: ${{ steps.update.outputs.sha }}
           CHANGES: ${{ steps.update.outputs.changes }}
+          MIGRATING: ${{ steps.update.outputs.migrating }}
         run: |
           set -euo pipefail
           title="EventPost を更新する（${SHA:0:7}）"
@@ -124,6 +130,12 @@ jobs:
           マージする前に、CI が成功していることを確かめてください。マージした後の確認は、UPDATING.md の「更新した後に」を見てください。
           EOF
           )
+          if [ "$MIGRATING" = "true" ]; then
+            body="> [!IMPORTANT]
+          > この更新は、旧版（v1）から新版への切り替えを含みます。マージすると、サイトのしくみと必要な設定が変わり、旧版のデータは使えなくなります。マージする前に、UPDATING.md の「旧版（v1）から移る」の準備をしてください。新版に移らない場合は、この PR を閉じてください。
+
+          $body"
+          fi
           if [ "$(gh pr list --head "$UPDATE_BRANCH" --state open --json number --jq length)" -gt 0 ]; then
             gh pr edit "$UPDATE_BRANCH" --title "$title" --body "$body"
           else

@@ -1,4 +1,4 @@
-# 毎時、参加申し込みと承認の通知、受付メールとリマインド、管理者が画面で書いたメールを送る（scripts/next/notify.ts）。
+# 毎時、参加申し込みと承認の通知、受付メールとリマインド、管理者が画面で書いたメールを送る（scripts/notify.ts）。
 # 手動実行で dry_run を選ぶと、送信も書き込みもせず、送る予定の内容をログに出す。
 name: Notify
 
@@ -68,7 +68,7 @@ jobs:
         uses: actions/configure-pages@v6
 
       - name: メールを送る
-        run: npm run notify:next -- ${{ inputs.dry_run && '--dry-run' || '' }}
+        run: npm run notify -- ${{ inputs.dry_run && '--dry-run' || '' }}
         env:
           SITE_URL: ${{ steps.pages.outputs.base_url }}
           SMTP_USER: ${{ secrets.SMTP_USER }}

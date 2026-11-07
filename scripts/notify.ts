@@ -1,20 +1,26 @@
-// 受付メール・リマインドの送信、件数の補正、古い申込データの削除。notify.yml から毎時実行する。
+// 参加申し込みの通知（管理者宛て）、承認の通知（本人宛て）、イベントの受付メールとリマインド、管理者が書いたメール。
+// 毎時の Actions から実行する。
 //
-//   npm run notify                      # 送信して記録する（SMTP_USER / SMTP_PASSWORD が必要）
-//   npm run notify -- --dry-run         # Firestore を読むだけで、送信も書き込みもせず予定をログに出す
+//   npm run notify                 # 送信して記録する（SMTP_USER / SMTP_PASSWORD が必要）
+//   npm run notify -- --dry-run    # Firestore を読むだけで、送信も書き込みもせず予定をログに出す
 //
-// 接続先と認証は scripts/lib/firestore.ts を参照。サイトの URL は PAGES_BASE_URL（または config.yml の custom_domain）。
-// 送信に失敗した申込があれば終了コード 1 で終わる（Actions の失敗通知で気づけるように）。
-// 公開リポジトリでは Actions のログも公開されるため、申込者の名前やメールアドレスはログに出さない。
-import { loadConfig } from '../app/src/lib/config';
-import { eventPageUrl, siteLocation } from '../app/src/lib/site-url';
+// 環境変数：SITE_URL（メールに載せるサイトの URL）、SMTP_*・REPLY_TO（lib/smtp.ts）、
+// REMINDER_HOUR（リマインドを送り始める開催前日の時刻。日本時間の 0〜23 時。省略すると 18 時）、
+// 接続先は lib/firestore.ts を参照。
+// 送信に失敗したメールがあれば終了コード 1 で終わる（Actions の失敗通知で気づけるように）。
+// 公開リポジトリでは Actions のログも公開されるため、名前やメールアドレスはログに出さない。
 import { connectFirestore } from './lib/firestore';
-import { loadEvents } from './lib/load-site';
-import { loadTemplate, mailVars, renderTemplate, type TemplateName } from './lib/mail';
-import { runNotify, type Delivery, type NotifyResult } from './lib/notify';
-import { createSender, smtpCredentials } from './lib/smtp';
+import { applicationsMail, confirmationMail, reminderMail, welcomeMail } from './lib/messages';
+import { parseReminderHour, runNotify, type DeliveryKind, type NotifyResult } from './lib/notify';
+import { createSender, smtpSettings } from './lib/smtp';
 
-const KIND_LABEL: Record<TemplateName, string> = { confirmation: '受付メール', reminder: 'リマインド' };
+const KIND_LABEL: Record<DeliveryKind, string> = {
+  applications: '申し込みの通知',
+  welcome: '承認の通知',
+  confirmation: '受付メール',
+  reminder: 'リマインド',
+  mail: '管理者のメール',
+};
 
 /** エラーメッセージに含まれうるメールアドレスを伏せる */
 function mask(message: string): string {
@@ -23,78 +29,80 @@ function mask(message: string): string {
 
 async function main() {
   const dryRun = process.argv.includes('--dry-run');
-  const config = loadConfig();
-  const events = loadEvents();
-  const templates = { confirmation: loadTemplate('confirmation'), reminder: loadTemplate('reminder') };
-  const location = siteLocation(config);
-  const eventUrl = (id: string) => eventPageUrl(location, id);
-  const { db, projectId } = connectFirestore(config);
+  const siteUrl = process.env.SITE_URL;
+  if (!siteUrl) throw new Error('環境変数 SITE_URL を設定してください');
+  const reminderHour = parseReminderHour(process.env.REMINDER_HOUR);
+  const settings = dryRun ? undefined : smtpSettings();
+  const { db, projectId } = connectFirestore();
   const now = new Date();
-  const sender = dryRun ? undefined : createSender(config, smtpCredentials());
+
+  // 差出人の表示名にグループ名を使う。グループがなければ runNotify が注意を返す
+  const groupName: string = (await db.doc('group/profile').get()).get('name') ?? '';
+  const sender = settings && groupName ? createSender(settings, groupName) : undefined;
 
   let result: NotifyResult;
   try {
-    result = await runNotify({
-      db,
-      config,
-      events,
-      templates,
-      eventUrl,
-      send: sender?.send ?? (async () => {}),
-      now,
-      dryRun,
-    });
+    result = await runNotify({ db, siteUrl, send: sender?.send ?? (async () => {}), dryRun, reminderHour });
   } finally {
     sender?.close();
   }
 
-  if (!dryRun) {
-    console.log(`Firestore（${projectId}）を確認しました（${now.toISOString()}）。`);
-    report(result, '送りました', '補正しました', '削除しました');
-    if (result.stopped) console.log(`- 送信の失敗が続いたため、残りは次の回に送ります。SMTP の設定や送信上限を確認してください。`);
-    if (result.failed.length > 0) process.exitCode = 1;
-    return;
-  }
+  const note = dryRun ? '--dry-run のため、送信も書き込みもしません。' : '';
+  console.log(`Firestore（${projectId}）を確認しました（${now.toISOString()}）。${note}`);
+  report(result, dryRun);
+  if (dryRun) printSamples(result, groupName, siteUrl);
+  if (result.failed.length > 0) process.exitCode = 1;
+}
 
-  console.log(`Firestore（${projectId}）を確認しました（${now.toISOString()}）。--dry-run のため、送信も書き込みもしません。`);
-
-  // イベントと種類ごとに件数をまとめ、文面の見本を 1 通ずつ出す
-  const groups = new Map<string, Delivery[]>();
-  for (const d of result.sent) {
-    const key = `${d.eventId}\t${d.kind}`;
-    groups.set(key, [...(groups.get(key) ?? []), d]);
+/** 件数・失敗・注意をログに出す。名前やメールアドレスは出さない */
+function report(result: NotifyResult, dryRun: boolean) {
+  const verb = dryRun ? '送る予定です' : '送りました';
+  for (const kind of Object.keys(KIND_LABEL) as DeliveryKind[]) {
+    const n = result.sent.filter((d) => d.kind === kind).length;
+    if (n > 0) console.log(`- ${KIND_LABEL[kind]}を ${n} 通${verb}。`);
   }
-  if (groups.size === 0) console.log('- 送る予定のメールはありません。');
-  for (const [key, list] of groups) {
-    const [eventId, kind] = key.split('\t') as [string, TemplateName];
-    const event = events.find((e) => e.id === eventId)!;
-    const mail = renderTemplate(templates[kind], mailVars(config, event, '（申込者名）', eventUrl(eventId)));
-    console.log(`\n- ${eventId}: ${KIND_LABEL[kind]}を ${list.length} 件送る予定です。見本：`);
+  if (result.notifiedApplications > 0) {
+    console.log(`- 申し込み ${result.notifiedApplications} 件を通知済みに${dryRun ? 'する予定です' : 'しました'}。`);
+  }
+  if (result.completedMails > 0) console.log(`- 管理者のメール ${result.completedMails} 件を送信済みにしました。`);
+  if (result.failedMails > 0) {
+    console.log(`- 管理者のメール ${result.failedMails} 件は、届かない宛先が残ったため、一部失敗として送り直しをやめました。`);
+  }
+  if (result.sent.length === 0 && result.failed.length === 0) console.log('- 送るメールはありませんでした。');
+  for (const f of result.failed) {
+    const where = f.mailId ? `${f.mailId} の ${f.uid}` : f.eventId ? `${f.eventId} の ${f.uid}` : f.uid;
+    console.log(`- ${KIND_LABEL[f.kind]}の送信に失敗しました（${where}）：${mask(f.error)}`);
+  }
+  if (result.stopped) console.log('- 送信の失敗が続いたため、残りは次の回に送ります。SMTP の設定や送信上限を確認してください。');
+  for (const w of result.warnings) console.log(`- 注意：${w}`);
+}
+
+/** 送る予定の種類ごとに、文面の見本を 1 通ずつ出す（名前は伏せる）。管理者のメールは本文を公開のログに出さないよう、見本を出さない */
+function printSamples(result: NotifyResult, groupName: string, siteUrl: string) {
+  const kinds = new Set(result.sent.map((d) => d.kind));
+  const samples = [];
+  if (kinds.has('applications')) {
+    const applicants = Array.from({ length: result.notifiedApplications }, () => ({
+      realName: '〇〇 〇〇',
+      nickname: '〇〇',
+      reason: '（申し込みの理由）',
+    }));
+    samples.push({ kind: 'applications' as const, mail: applicationsMail(groupName, siteUrl, applicants) });
+  }
+  if (kinds.has('welcome')) samples.push({ kind: 'welcome' as const, mail: welcomeMail(groupName, siteUrl, '〇〇') });
+  // 受付メールとリマインドは、送る予定の最初のイベントで見本を作る（イベントの内容は公開の情報なので出してよい）
+  for (const kind of ['confirmation', 'reminder'] as const) {
+    const first = result.sent.find((d) => d.kind === kind);
+    const event = first?.eventId ? result.events.get(first.eventId) : undefined;
+    if (!event) continue;
+    const mail = (kind === 'confirmation' ? confirmationMail : reminderMail)(groupName, siteUrl, event, '〇〇');
+    samples.push({ kind, mail });
+  }
+  for (const { kind, mail } of samples) {
+    console.log(`\n${KIND_LABEL[kind]}の見本：`);
     console.log(`  件名：${mail.subject}`);
     console.log(mail.text.trimEnd().replace(/^/gm, '  | '));
   }
-  report({ ...result, sent: [] }, '', '補正する予定', '削除する予定です');
-}
-
-/** 件数・補正・削除・失敗・注意をログに出す。名前やメールアドレスは出さない */
-function report(result: NotifyResult, sentVerb: string, correctVerb: string, purgeVerb: string) {
-  const counts = new Map<string, number>();
-  for (const d of result.sent) {
-    const key = `${d.eventId}: ${KIND_LABEL[d.kind]}`;
-    counts.set(key, (counts.get(key) ?? 0) + 1);
-  }
-  for (const [key, n] of counts) console.log(`- ${key}を ${n} 件${sentVerb}。`);
-  if (sentVerb && counts.size === 0 && result.failed.length === 0) console.log('- 送るメールはありませんでした。');
-  for (const c of result.corrected) {
-    console.log(`- ${c.eventId}: count が ${c.from} でしたが、申込は ${c.to} 件です（${correctVerb}）。`);
-  }
-  for (const p of result.purged) {
-    console.log(`- ${p.eventId}: 保存期間を過ぎた申込 ${p.count} 件を${purgeVerb}。`);
-  }
-  for (const f of result.failed) {
-    console.log(`- ${f.eventId}: ${KIND_LABEL[f.kind]}の送信に失敗しました（${f.uid}）：${mask(f.error)}`);
-  }
-  for (const w of result.warnings) console.log(`- 注意：${w}`);
 }
 
 main().catch((e) => {

@@ -1,13 +1,16 @@
 # 再設計の進捗と作業メモ
 
-`docs/design.md` の再設計を、段階ごとに進めている。新しいセッションで作業を再開するときは、このファイルと `docs/design.md` を先に読む。
+`docs/design.md` の再設計を、段階ごとに進めてきた。段階 1〜8 は 2026-11-07 に終わった。新しいセッションで作業を再開するときは、このファイルと `docs/design.md` を先に読む。
+
+> [!NOTE]
+> 8-C で旧版を消し、「next」の付いた名前を元に戻した（`firebase/firestore.next.rules` → `firebase/firestore.rules`、`firebase.next.json` → `firebase.json`、`firestore.next.indexes.json` → `firestore.indexes.json`、`scripts/next/` → `scripts/`、`tests/next/` → `tests/`、`vitest.next-rules.config.ts` → `vitest.rules.config.ts`、`notify:next` → `notify`、`emulators:next` → `emulators`、`test:next-rules` → `test:rules`、`web:dev`・`web:build`・`web:check` → `dev`・`build`・`check`）。各段階の記録は、当時の名前のまま残している
 
 ## 進め方の約束
 
 - 作業は `main` を最新として進める。2026-11-06 に `redesign` の内容を main に統合した。`redesign` ブランチはその時点で止めてあり、もう使わない
 - 段階ごとに、作業計画を示して確認を取ってから実装する
 - 段階が終わったら、確かめた内容を報告する。コミットは確認を取ってから行う
-- 指示されていないファイルは変えない。旧版（`app/`、`site/`、`scripts/`、`tests/` の `next/` 以外）は、段階 8 まで触らない
+- 指示されていないファイルは変えない
 
 ## 進捗
 
@@ -25,8 +28,8 @@
 | 7-A. メンバー管理（`/admin/members`）、グループの設定（`/admin/settings`） | 完了 | `733e645` |
 | 7-B. メンバーへのメール（`mails`、画面、送信スクリプト） | 完了 | `e1e362b` |
 | 8-A. 受付メールとリマインド | 完了 | `4e4406a` |
-| 8-B. デプロイの切り替え（`deploy.yml`、`notify.yml`）、旧版のデータを消すワークフロー、画面ごとのコード分割 | 完了 | このコミット |
-| 8-C. 旧版の削除、名前の整理、README・UPDATING | **次はここ** | |
+| 8-B. デプロイの切り替え（`deploy.yml`、`notify.yml`）、旧版のデータを消すワークフロー、画面ごとのコード分割 | 完了 | `4274646` |
+| 8-C. 旧版の削除、名前の整理、README・UPDATING | 完了 | このコミット |
 
 ## 段階 5 の計画
 
@@ -117,6 +120,19 @@
   - 画面ごとのコード分割：トップと「見つかりません」以外のページを `React.lazy` で読み込み、`Layout` の `Suspense` で読み込み中を出す。最初に読み込む JS は 1,044KB → 917KB（`index` 239KB、Firebase の SDK 678KB）。Markdown の表示（約 83KB）は詳細画面だけで読む。警告の上限は 700KB にした（Firebase の SDK が分けられないため）。さらに小さくするなら `firebase/firestore/lite` に替える案があるが、ルールのテストの作りも変わるので見送った
   - 本番での確かめ（Firebase への実際のデプロイ、SMTP での送信）は、まだできていない
 
+- **8-C でやったこと**
+  - 旧版（`app/`、`site/`、旧 `scripts/`・`tests/`、旧ルール、`vitest` の旧設定）を消し、「next」の付いた名前を元に戻した（冒頭の注を参照）。Astro、`yaml`、`zod` の依存を外した
+  - `npm run check` は、画面（`web/tsconfig.json`）と、スクリプトとテスト（ルートの `tsconfig.json`。新しく作った）の両方を型チェックする。CI は型チェック、単体テスト、ビルド、ルールとスクリプトのテストだけにした
+  - README を新版の手順で書き直した（セットアップ、使い方、メール、Variables、運用、トラブル、開発者向け）。画面の写真（`docs/images/`）も新版で撮り直した
+  - `UPDATING.md`：残すパスの説明を新版に合わせ、「旧版（v1）から移る」を足した（Variables の登録、切り替え、旧データの削除、グループの作成、旧版に留まるとき）
+  - `update.yml`：旧版（`app/` がある）から新版への切り替えを含む PR には、移行の準備を促す注意を説明の先頭に入れる
+  - タグ `v1`（`4e4406a`）は、この環境からは push できなかった（タグの push だけが接続を切られる）。GitHub の画面で付ける必要がある
+- **段階 8 のあとに残っていること**
+  - タグ `v1` を GitHub に付ける
+  - 本番での確かめ：Firebase へのデプロイ、Pages への公開、ログイン（ポップアップ）、SMTP での送信、collectionGroup のインデックス
+  - asugaku の移行（`UPDATING.md` の「旧版（v1）から移る」）
+  - さらに軽くするなら、Firestore の軽量版（`firebase/firestore/lite`）に替える（ルールのテストの作りも変わる）
+
 ## 配信先を GitHub Pages に変えたこと（2026-11-06）
 
 ほかのサイトと運用を揃えるため、Firebase Hosting をやめて GitHub Pages で配信する。
@@ -173,16 +189,17 @@
 
 ## 開発環境のメモ
 
-- 新しいルールは `firebase/firestore.next.rules`、エミュレーターの設定は `firebase/firebase.next.json`（Auth は 9199、Firestore は 8180）。段階 8 で、旧版の `firestore.rules` と `firebase.json` と入れ替える
-- CI（`ci.yml`）は、旧版の確認に加えて、新版の `web:check`、`web:build`、`test:next-rules` も実行する
+- ルールは `firebase/firestore.rules`、インデックスは `firebase/firestore.indexes.json`、エミュレーターの設定は `firebase/firebase.json`（Auth は 9199、Firestore は 8180）
+- CI（`ci.yml`）は、型チェック（`npm run check`）、単体テスト、ビルド、ルールとスクリプトのテスト（`npm run test:rules`）を実行する
 - テストの置き場所
-  - ルール：`tests/next/rules/`（`npm run test:next-rules`）
-  - 通知メール：`tests/next/notify/`（`npm run test:next-rules` に含まれる）
-  - 単体：`tests/next/unit/`（`npm test` に含まれる）
-- 画面の確認：`npm run emulators:next` と `npx vite --config web/vite.config.ts --port 5179` を起動する
+  - ルール：`tests/rules/`（`npm run test:rules`）
+  - スクリプト（通知メール、旧データの削除）：`tests/notify/`（`npm run test:rules` に含まれる）
+  - 単体：`tests/unit/`（`npm test`）
+- 型チェック：`npm run check`（画面は `web/tsconfig.json`、スクリプトとテストはルートの `tsconfig.json`）
+- 画面の確認：`npm run emulators` と `npx vite --config web/vite.config.ts --port 5179` を起動する
   - エミュレーターのデータを消すとき：`curl -X DELETE "http://127.0.0.1:8180/emulator/v1/projects/demo-event-post/databases/(default)/documents"`
+  - スクリーンショットで日時を確かめるときは、ブラウザを日本時間にする（Playwright なら `timezoneId: 'Asia/Tokyo'`）
 - この端末では `java` に PATH が通っていない。エミュレーターを使うコマンドの前に `export PATH="/opt/homebrew/opt/openjdk@21/bin:$PATH"` を付ける
-- `scripts/` 用の tsconfig はない。型チェックは一時的な tsconfig（`strict`、`moduleResolution: Bundler`、`types: ["node"]`、対象は `scripts/next/notify.ts` と `tests/next/**`）で行う
 - ポート 8080 では、利用者が旧版のエミュレーターを動かしていることがある。止めたり、データを消したりしない
 - Chrome での確認：ログインのポップアップは別ウィンドウで開くため、拡張機能からは操作できない。ページ上の JavaScript で、エミュレーターのテスト用アカウントでログインする
 
@@ -200,6 +217,5 @@
 
 ## 後回しにしていること
 
-- ビルドした JS が約 900KB あり、サイズの警告が出ている。主な原因は Firebase の SDK。段階 8 で、画面ごとにコードを分割する
 - ポップアップでのログインは、利用者が手元で確かめる必要がある（拡張機能からは操作できないため）
 - 旧版のヘルプページの変更は `main` の `git stash` に退避してある（名前は「help page (before redesign)」）

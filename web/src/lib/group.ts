@@ -1,5 +1,5 @@
 // グループ（group/profile）の読み書き。
-// db を引数で受け取るのは、エミュレーターのテスト（tests/next/rules/）からも同じ関数を使うため。
+// db を引数で受け取るのは、エミュレーターのテスト（tests/rules/）からも同じ関数を使うため。
 import { doc, getDoc, serverTimestamp, updateDoc, writeBatch, type Firestore, type Timestamp } from 'firebase/firestore';
 import type { SignedInUser } from './membership';
 

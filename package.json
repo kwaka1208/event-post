@@ -3,32 +3,23 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "EventPost — GitHub Pages + Actions で運用するイベント管理サイト",
+  "description": "EventPost — クローズドなグループのためのイベント管理サイト（GitHub Pages + Firebase + Actions）",
   "engines": {
     "node": ">=22.12.0"
   },
   "scripts": {
-    "dev": "cd app && astro dev",
-    "build": "cd app && astro build",
-    "preview": "cd app && astro preview",
-    "web:dev": "vite --config web/vite.config.ts",
-    "web:build": "vite build --config web/vite.config.ts",
-    "web:check": "tsc -p web/tsconfig.json",
-    "check": "cd app && astro check",
-    "validate": "tsx scripts/sync-firestore.ts --dry-run",
-    "sync": "tsx scripts/sync-firestore.ts",
-    "notify": "tsx scripts/notify.ts",
-    "notify:next": "tsx scripts/next/notify.ts",
-    "cleanup:old": "tsx scripts/next/cleanup-old.ts",
+    "dev": "vite --config web/vite.config.ts",
+    "build": "vite build --config web/vite.config.ts",
+    "preview": "vite preview --config web/vite.config.ts",
+    "check": "tsc -p web/tsconfig.json && tsc -p tsconfig.json",
     "test": "vitest run",
     "emulators": "firebase emulators:start --config firebase/firebase.json --project demo-event-post --only auth,firestore",
-    "emulators:next": "firebase emulators:start --config firebase/firebase.next.json --project demo-event-post --only auth,firestore",
     "test:rules": "firebase emulators:exec --config firebase/firebase.json --project demo-event-post --only firestore \"vitest run --config vitest.rules.config.ts\"",
-    "test:next-rules": "firebase emulators:exec --config firebase/firebase.next.json --project demo-event-post --only firestore \"vitest run --config vitest.next-rules.config.ts\""
+    "notify": "tsx scripts/notify.ts",
+    "cleanup:old": "tsx scripts/cleanup-old.ts"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.104.5",
-    "astro": "^7.4.0",
     "dompurify": "^3.4.17",
     "firebase": "^13.0.0",
     "firebase-admin": "^14.5.0",
@@ -36,12 +27,9 @@
     "nodemailer": "^10.1.2",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "react-router": "^8.5.0",
-    "yaml": "^2.9.1",
-    "zod": "^4.6.7"
+    "react-router": "^8.5.0"
   },
   "devDependencies": {
-    "@astrojs/check": "^0.9.10",
     "@firebase/rules-unit-testing": "^6.0.0",
     "@types/node": "^22.20.5",
     "@types/nodemailer": "^8.0.2",

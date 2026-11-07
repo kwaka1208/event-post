@@ -1,5 +1,5 @@
 // メンバー用の画面をまとめるルート。メンバー（owner・admin・member）以外は / に戻す。
-// 見せ方の振り分けで、読み書きできる範囲はルール（firebase/firestore.next.rules）が決める。
+// 見せ方の振り分けで、読み書きできる範囲はルール（firebase/firestore.rules）が決める。
 import { Navigate, Outlet, useOutletContext } from 'react-router';
 import { LoadError, Loading } from '@/components/Status';
 import type { Member } from '@/lib/membership';

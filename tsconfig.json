@@ -1,0 +1,14 @@
+{
+  // Actions のスクリプト（scripts/）とテスト（tests/）の型チェック（npm run check）。画面は web/tsconfig.json
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["scripts/**/*.ts", "tests/**/*.ts", "vitest.config.ts", "vitest.rules.config.ts"]
+}

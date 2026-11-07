@@ -1,5 +1,5 @@
-// 管理者が書いたメール（mails）の読み書き。送信は毎時の Actions（scripts/next/）が行う。
-// 権限と入力の確認はルール（firebase/firestore.next.rules）が行う。
+// 管理者が書いたメール（mails）の読み書き。送信は毎時の Actions（scripts/）が行う。
+// 権限と入力の確認はルール（firebase/firestore.rules）が行う。
 import {
   collection,
   deleteDoc,

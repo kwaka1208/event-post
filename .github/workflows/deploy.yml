@@ -67,7 +67,7 @@ jobs:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
       - name: Firestore のルールとインデックスをデプロイ
-        run: npx firebase deploy --only firestore --config firebase/firebase.next.json --project "${{ vars.FIREBASE_PROJECT_ID }}" --non-interactive
+        run: npx firebase deploy --only firestore --config firebase/firebase.json --project "${{ vars.FIREBASE_PROJECT_ID }}" --non-interactive
 
       - name: GitHub Pages の設定を読む
         id: pages
@@ -75,7 +75,7 @@ jobs:
 
       # Firebase の Web 設定は公開してよい値。ビルドした JS に埋め込む（web/src/lib/firebase.ts）
       - name: 画面をビルド
-        run: npm run web:build
+        run: npm run build
         env:
           BASE_PATH: ${{ steps.pages.outputs.base_path }}
           VITE_FIREBASE_API_KEY: ${{ vars.FIREBASE_API_KEY }}

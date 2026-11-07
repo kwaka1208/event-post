@@ -1,5 +1,5 @@
 // イベントの入力フォームの値（文字列）と、保存する値（EventInput）の変換・検証。
-// 画面から切り離して、単体テスト（tests/next/unit/eventForm.test.ts）で確かめる。
+// 画面から切り離して、単体テスト（tests/unit/eventForm.test.ts）で確かめる。
 // 日時は <input type="datetime-local"> の形（YYYY-MM-DDTHH:mm、ブラウザの時刻）で扱う。
 import type { EventDoc, EventInput } from './events';
 import { LIMITS } from './limits';
@@ -68,7 +68,7 @@ export function eventToForm(event: EventDoc): EventFormValues {
 export type EventFormResult = { ok: true; input: EventInput } | { ok: false; errors: string[] };
 
 /**
- * フォームの値を確かめて、保存する値にする。ルール（firebase/firestore.next.rules）と同じ条件を、先に画面で伝えるため。
+ * フォームの値を確かめて、保存する値にする。ルール（firebase/firestore.rules）と同じ条件を、先に画面で伝えるため。
  * registrationCount は編集のときの今の申込数（定員をそれより少なくできない）
  */
 export function formToInput(values: EventFormValues, registrationCount = 0): EventFormResult {

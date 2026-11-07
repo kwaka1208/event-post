@@ -1,8 +1,8 @@
 // ブラウザ側の Firebase 初期化。
 // 本番（GitHub Pages）では、ビルドするときに環境変数 VITE_FIREBASE_* で渡した設定を埋め込む。
 // どれも Firebase の Web 設定で、公開してよい値。値の出どころ（設定ファイルやワークフロー）は段階 8 で決める。
-// 開発サーバー（npm run web:dev）では、npm run emulators:next で起動したエミュレーターに接続する
-// （ポートは firebase/firebase.next.json と合わせる）。
+// 開発サーバー（npm run dev）では、npm run emulators で起動したエミュレーターに接続する
+// （ポートは firebase/firebase.json と合わせる）。
 import { initializeApp, type FirebaseOptions } from 'firebase/app';
 import { connectAuthEmulator, getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore';

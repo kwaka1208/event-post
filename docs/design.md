@@ -9,7 +9,7 @@
 | グループの数 | 1 サイト 1 グループ。グループごとに Firebase のプロジェクトを用意してデプロイする |
 | グループの作成 | デプロイ後、最初にログインした人が `/setup` で作る。作った人が特権管理者になる。2 つ目は作れない |
 | 画面 | Vite＋React＋React Router＋TanStack Query の SPA（`web/`） |
-| ホスティング | GitHub Pages（ほかのサイトと運用を揃える）。Firebase の Web 設定はビルド時に環境変数 `VITE_FIREBASE_*` で埋め込む。どのパスでも画面を出せるよう、`index.html` を `404.html` に複製する。サブパスは環境変数 `BASE_PATH` で渡す |
+| ホスティング | GitHub Pages（ほかのサイトと運用を揃える）。Firebase の Web 設定はビルド時に環境変数 `VITE_FIREBASE_*` で埋め込む（Actions ではリポジトリの Variables `FIREBASE_*` から渡す）。どのパスでも画面を出せるよう、`index.html` を `404.html` に複製する。サブパスは環境変数 `BASE_PATH` で渡す |
 | データ | Cloud Firestore。アクセス制御はセキュリティルールで行う。無料の Spark プランで動かす（Cloud Functions は使わない） |
 | メール | GitHub Actions が毎時 Firestore を見て、Gmail から送る。最大 1 時間ほど遅れて届く |
 | 申込データ | 自動では削除しない（マイページで過去の参加を見せるため） |
@@ -42,7 +42,7 @@
 | `members/{uid}` | 役割、本名、ニックネーム、メールアドレス、参加日時 | 本人と管理者 |
 | `applications/{uid}` | 本名、ニックネーム、申し込み理由、メールアドレス、申込日時、通知の送信日時 | 本人と管理者 |
 | `events/{id}` | タイトル、本文（Markdown）、日時、会場、住所、定員、締切、公開状態、申込数 | メンバー（下書きは管理者だけ） |
-| `events/{id}/registrations/{uid}` | イベントへの申込 | 本人と管理者 |
+| `events/{id}/registrations/{uid}` | イベントへの申込（名前とメールアドレスの写し、申込日時、受付メールとリマインドの送信日時） | 本人と管理者 |
 | `mails/{id}` | 管理者が書いたメール（宛先、件名、本文、送信状況） | 管理者 |
 
 - グループの作成は 1 回の書き込みで行う（`group/profile` と自分の `members` を同時に作る）
@@ -78,6 +78,8 @@
 - キャンセル待ち・抽選、決済
 
 ## 作業の段階
+
+段階 1〜8 は 2026-11-07 に終わった。経緯と決めたことの詳細は `docs/progress.md` にある。
 
 | 段階 | 内容 |
 |---|---|

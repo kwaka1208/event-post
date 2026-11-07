@@ -1,5 +1,5 @@
 // メンバー（members）と参加申し込み（applications）の読み書き。
-// 権限の確認はルール（firebase/firestore.next.rules）が行う。
+// 権限の確認はルール（firebase/firestore.rules）が行う。
 import {
   collection,
   deleteDoc,

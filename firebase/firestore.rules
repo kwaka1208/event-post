@@ -1,31 +1,11 @@
 rules_version = '2';
 
 // EventPost の Firestore セキュリティルール
-// Cloud Functions を使わないため、不正な書き込みや定員超過はすべてここで防ぐ。
-// Actions（Admin SDK）はルールを迂回するので、同期・メール送信・件数補正はここでは考えない。
+// Cloud Functions を使わないため、権限の確認と入力の検証はすべてここで行う。
+// Actions（Admin SDK）はルールを迂回するので、メール送信の記録などはここでは考えない。
+// 文字数の上限は web/src/lib/limits.ts と合わせる。
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // 申込の追加項目の上限（app/src/lib/schema.ts の MAX_FIELDS と合わせる）
-    // ルールではマップを繰り返し処理できないため、値の検証は先頭から順に書き下す
-    function validAnswerValue(v) {
-      return (v is string && v.size() <= 1000) || v is int || v is float;
-    }
-
-    function validAnswerAt(values, i) {
-      return values.size() <= i || validAnswerValue(values[i]);
-    }
-
-    function validAnswerValues(values) {
-      return values.size() <= 20
-        && validAnswerAt(values, 0) && validAnswerAt(values, 1) && validAnswerAt(values, 2)
-        && validAnswerAt(values, 3) && validAnswerAt(values, 4) && validAnswerAt(values, 5)
-        && validAnswerAt(values, 6) && validAnswerAt(values, 7) && validAnswerAt(values, 8)
-        && validAnswerAt(values, 9) && validAnswerAt(values, 10) && validAnswerAt(values, 11)
-        && validAnswerAt(values, 12) && validAnswerAt(values, 13) && validAnswerAt(values, 14)
-        && validAnswerAt(values, 15) && validAnswerAt(values, 16) && validAnswerAt(values, 17)
-        && validAnswerAt(values, 18) && validAnswerAt(values, 19);
-    }
 
     function signedIn() {
       return request.auth != null;
@@ -35,93 +15,307 @@ service cloud.firestore {
       return signedIn() && request.auth.token.email_verified == true;
     }
 
-    // config/admins は小文字で同期しているので、トークンのメールも小文字にして照合する
-    function isAdmin() {
-      return verified()
-        && request.auth.token.email.lower() in get(/databases/$(database)/documents/config/admins).data.emails;
+    function groupPath() {
+      return /databases/$(database)/documents/group/profile;
+    }
+
+    function memberPath(uid) {
+      return /databases/$(database)/documents/members/$(uid);
+    }
+
+    function applicationPath(uid) {
+      return /databases/$(database)/documents/applications/$(uid);
     }
 
     function eventPath(eventId) {
       return /databases/$(database)/documents/events/$(eventId);
     }
 
-    function myRegistrationPath(eventId) {
-      return /databases/$(database)/documents/events/$(eventId)/registrations/$(request.auth.uid);
+    function registrationPath(eventId, uid) {
+      return /databases/$(database)/documents/events/$(eventId)/registrations/$(uid);
+    }
+
+    function isMember() {
+      return signedIn() && exists(memberPath(request.auth.uid));
+    }
+
+    function myRole() {
+      return get(memberPath(request.auth.uid)).data.role;
+    }
+
+    function isAdmin() {
+      return isMember() && myRole() in ['owner', 'admin'];
+    }
+
+    function isOwner() {
+      return isMember() && myRole() == 'owner';
+    }
+
+    function text(v, min, max) {
+      return v is string && v.size() >= min && v.size() <= max;
+    }
+
+    function exactKeys(d, keys) {
+      return d.keys().hasOnly(keys) && d.keys().hasAll(keys);
     }
 
     // ------------------------------------------------------------------
-    // config/admins：config.yml の admins の写し（Actions が同期する）
+    // group/profile：グループの情報。トップページに出すので誰でも読める
     // ------------------------------------------------------------------
-    match /config/admins {
+    match /group/profile {
+      allow read: if true;
+
+      // 最初の 1 回だけ。作成者自身の members（role: owner）と同時に作る
+      allow create: if verified()
+        && validGroup(request.resource.data)
+        && exactKeys(request.resource.data, ['name', 'description', 'ownerName', 'ownerUid', 'createdAt'])
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && getAfter(memberPath(request.auth.uid)).data.role == 'owner';
+
+      // 特権管理者だけが、名前・説明・表示する管理者名を変えられる
+      allow update: if isOwner()
+        && validGroup(request.resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'description', 'ownerName']);
+
+      allow delete: if false;
+
+      function validGroup(d) {
+        return text(d.name, 1, 100)
+          && text(d.description, 0, 2000)
+          && text(d.ownerName, 1, 100);
+      }
+    }
+
+    // ------------------------------------------------------------------
+    // members/{uid}：グループのメンバー（ドキュメント ID は uid）
+    // ------------------------------------------------------------------
+    match /members/{uid} {
+      allow read: if (signedIn() && request.auth.uid == uid) || isAdmin();
+
+      allow create: if isCreatingOwner(uid) || isApproving(uid);
+
+      // 役割を変えられるのは特権管理者だけ。特権管理者自身の役割は変えられない
+      allow update: if isOwner()
+        && resource.data.role != 'owner'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role'])
+        && request.resource.data.role in ['admin', 'member'];
+
+      // 参加者は管理者が、管理者は特権管理者が削除できる。特権管理者は削除できない
+      allow delete: if resource.data.role != 'owner'
+        && (isOwner() || (isAdmin() && resource.data.role == 'member'));
+
+      function memberKeys() {
+        return ['uid', 'role', 'realName', 'nickname', 'email', 'joinedAt'];
+      }
+
+      // グループの作成：group/profile がまだなく、この書き込みで自分を owner にして作る
+      function isCreatingOwner(uid) {
+        let d = request.resource.data;
+        return verified()
+          && request.auth.uid == uid
+          && !exists(groupPath())
+          && getAfter(groupPath()).data.ownerUid == uid
+          && exactKeys(d, memberKeys())
+          && d.uid == uid
+          && d.role == 'owner'
+          && text(d.realName, 1, 100)
+          && text(d.nickname, 1, 100)
+          && d.email == request.auth.token.email
+          && d.joinedAt == request.time;
+      }
+
+      // 承認：申し込みの内容を写して members を作り、同じ書き込みで申し込みを消す。
+      // 管理者として承認できるのは特権管理者だけ
+      function isApproving(uid) {
+        let d = request.resource.data;
+        let app = get(applicationPath(uid)).data;
+        return isAdmin()
+          && exists(applicationPath(uid))
+          && !existsAfter(applicationPath(uid))
+          && exactKeys(d, memberKeys())
+          && d.uid == uid
+          && (d.role == 'member' || (d.role == 'admin' && isOwner()))
+          && d.realName == app.realName
+          && d.nickname == app.nickname
+          && d.email == app.email
+          && d.joinedAt == request.time;
+      }
+    }
+
+    // ------------------------------------------------------------------
+    // applications/{uid}：参加申し込み（ドキュメント ID は申込者の uid）
+    // ------------------------------------------------------------------
+    match /applications/{uid} {
+      allow read: if (signedIn() && request.auth.uid == uid) || isAdmin();
+
+      // グループがあり、まだメンバーでない本人だけが申し込める
+      allow create: if verified()
+        && request.auth.uid == uid
+        && exists(groupPath())
+        && !isMember()
+        && validApplication(uid, request.resource.data);
+
+      // 内容を変えたいときは取り下げて申し込み直す
+      allow update: if false;
+
+      // 本人の取り下げと、管理者の削除（承認時の削除も含む）
+      allow delete: if (signedIn() && request.auth.uid == uid) || isAdmin();
+
+      function validApplication(uid, d) {
+        return exactKeys(d, ['uid', 'realName', 'nickname', 'reason', 'email', 'createdAt'])
+          && d.uid == uid
+          && text(d.realName, 1, 100)
+          && text(d.nickname, 1, 100)
+          && text(d.reason, 1, 1000)
+          && d.email == request.auth.token.email
+          && d.createdAt == request.time;
+      }
+    }
+
+    // ------------------------------------------------------------------
+    // mails/{id}：管理者が書いたメール。毎時の Actions（Admin SDK）が宛先に 1 人ずつ送り、
+    // 送信状況（status、deliveredUids など）を書く。宛先は書いた時点の名前とメールアドレスの写し
+    // ------------------------------------------------------------------
+    match /mails/{mailId} {
       allow read: if isAdmin();
-      allow write: if false;
+
+      allow create: if isAdmin()
+        && exactKeys(request.resource.data,
+          ['subject', 'body', 'recipients', 'createdByUid', 'createdByName', 'createdAt', 'status'])
+        && text(request.resource.data.subject, 1, 200)
+        && text(request.resource.data.body, 1, 10000)
+        && request.resource.data.recipients is list
+        && request.resource.data.recipients.size() >= 1
+        && request.resource.data.recipients.size() <= 500
+        && request.resource.data.createdByUid == request.auth.uid
+        && request.resource.data.createdByName == get(memberPath(request.auth.uid)).data.realName
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.status == 'pending';
+
+      // 内容は変えられない。直したいときは、送信前に削除して書き直す
+      allow update: if false;
+
+      // 送信前（status が pending で、まだ誰にも届けていない）だけ削除できる
+      allow delete: if isAdmin()
+        && resource.data.status == 'pending'
+        && !('deliveredUids' in resource.data && resource.data.deliveredUids.size() > 0);
     }
 
     // ------------------------------------------------------------------
-    // events/{eventId}：Markdown の写し（Actions が同期する）
+    // events/{eventId}：イベント。公開中はメンバーが、下書きは管理者だけが読める
     // ------------------------------------------------------------------
     match /events/{eventId} {
-      allow read: if true;
-      allow create, delete: if false;
+      // メンバーが一覧を読むときは where('published', '==', true) で絞り込む（ルールが通るように）
+      allow read: if isAdmin() || (isMember() && resource.data.published == true);
 
-      // ログインユーザーが変更できるのは count だけ。申込かキャンセルと同時でなければならない
-      allow update: if signedIn()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['count'])
-        && (isApplying(eventId) || isCancelling(eventId));
+      // 申込数（registrationCount）は 0 から始める
+      allow create: if isAdmin()
+        && exactKeys(request.resource.data, eventKeys())
+        && validEvent(request.resource.data)
+        && request.resource.data.registrationCount == 0
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
 
-      // 申込：count がちょうど +1、自分の申込がこの書き込みの前になく後にある、定員を超えない
-      function isApplying(eventId) {
-        return request.resource.data.count == resource.data.count + 1
-          && !exists(myRegistrationPath(eventId))
-          && existsAfter(myRegistrationPath(eventId))
-          && (resource.data.capacity == null || request.resource.data.count <= resource.data.capacity);
+      // 管理者の編集か、申込・キャンセルに合わせた申込数の ±1
+      allow update: if isEditingEvent() || isCountingRegistration(eventId);
+
+      // 申込がないイベントだけ削除できる。申込があるときは下書きに戻す
+      allow delete: if isAdmin() && resource.data.registrationCount == 0;
+
+      // 管理者の編集。申込数と作成日時は変えられない。定員は今の申込数より少なくできない。
+      // Actions（Admin SDK）がメールの送信日時などを書き足しても編集できるよう、変える項目だけを確かめる
+      function isEditingEvent() {
+        return isAdmin()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(editableEventKeys())
+          && validEvent(request.resource.data)
+          && request.resource.data.updatedAt == request.time
+          && (request.resource.data.capacity == null
+            || request.resource.data.capacity >= resource.data.registrationCount);
       }
 
-      // キャンセル：count がちょうど −1、自分の申込がこの書き込みの前にあり後にない
-      function isCancelling(eventId) {
-        return request.resource.data.count == resource.data.count - 1
-          && exists(myRegistrationPath(eventId))
-          && !existsAfter(myRegistrationPath(eventId));
+      // 申込数だけを ±1 する。同じ書き込みで、自分の申込を作る（+1）か消す（-1）ときだけ。
+      // 公開中か、締切、定員、キャンセルの期限は registrations のルールで確かめる
+      function isCountingRegistration(eventId) {
+        let before = resource.data.registrationCount;
+        let after = request.resource.data.registrationCount;
+        let reg = registrationPath(eventId, request.auth.uid);
+        return signedIn()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['registrationCount'])
+          && ((after == before + 1 && !exists(reg) && existsAfter(reg))
+            || (after == before - 1 && exists(reg) && !existsAfter(reg)));
+      }
+
+      function eventKeys() {
+        return ['title', 'body', 'startAt', 'endAt', 'deadlineAt', 'venue', 'address', 'capacity',
+          'published', 'registrationCount', 'createdAt', 'updatedAt'];
+      }
+
+      function editableEventKeys() {
+        return ['title', 'body', 'startAt', 'endAt', 'deadlineAt', 'venue', 'address', 'capacity',
+          'published', 'updatedAt'];
+      }
+
+      // 締切は開始日時まで。定員は null（定員なし）か 1〜10000
+      function validEvent(d) {
+        return text(d.title, 1, 100)
+          && text(d.body, 0, 10000)
+          && d.startAt is timestamp
+          && d.endAt is timestamp
+          && d.deadlineAt is timestamp
+          && d.endAt > d.startAt
+          && d.deadlineAt <= d.startAt
+          && text(d.venue, 1, 100)
+          && text(d.address, 0, 200)
+          && (d.capacity == null || (d.capacity is int && d.capacity >= 1 && d.capacity <= 10000))
+          && d.published is bool;
       }
 
       // ----------------------------------------------------------------
-      // events/{eventId}/registrations/{uid}：申込（ドキュメント ID は申込者の uid）
+      // events/{eventId}/registrations/{uid}：イベントへの申込（ドキュメント ID は申込者の uid）
       // ----------------------------------------------------------------
       match /registrations/{uid} {
+        // 本人と管理者。管理者は申込者の一覧を読む
         allow read: if (signedIn() && request.auth.uid == uid) || isAdmin();
 
-        allow create: if verified()
+        // メンバー本人が、公開中で締切前のイベントに申し込む。申込数の +1 と同時に書き、定員を超えない
+        allow create: if signedIn()
           && request.auth.uid == uid
-          && validRegistration(eventId, uid);
+          && isMember()
+          && validRegistration(uid, request.resource.data)
+          && get(eventPath(eventId)).data.published == true
+          && request.time < get(eventPath(eventId)).data.deadlineAt
+          && getAfter(eventPath(eventId)).data.registrationCount == get(eventPath(eventId)).data.registrationCount + 1
+          && (get(eventPath(eventId)).data.capacity == null
+            || getAfter(eventPath(eventId)).data.registrationCount <= get(eventPath(eventId)).data.capacity);
 
-        // 内容を変えたいときはキャンセルして申し込み直す
         allow update: if false;
 
+        // 本人のキャンセル。開始日時まで。申込数の -1 と同時に書く
         allow delete: if signedIn()
           && request.auth.uid == uid
           && request.time < get(eventPath(eventId)).data.startAt
-          && getAfter(eventPath(eventId)).data.count == get(eventPath(eventId)).data.count - 1;
+          && getAfter(eventPath(eventId)).data.registrationCount == get(eventPath(eventId)).data.registrationCount - 1;
 
-        function validRegistration(eventId, uid) {
-          let event = get(eventPath(eventId)).data;
-          let eventAfter = getAfter(eventPath(eventId)).data;
-          let d = request.resource.data;
-          let keys = ['uid', 'name', 'email', 'answers', 'createdAt'];
-          return event.published == true
-            && event.archived == false
-            && request.time < event.deadline
-            && eventAfter.count == event.count + 1
-            && d.keys().hasOnly(keys)
-            && d.keys().hasAll(keys)
+        // 名前とメールアドレスは、自分の members の内容を写す
+        function validRegistration(uid, d) {
+          let me = get(memberPath(uid)).data;
+          return exactKeys(d, ['uid', 'realName', 'nickname', 'email', 'createdAt'])
             && d.uid == uid
-            && d.email == request.auth.token.email
-            && d.name is string && d.name.size() > 0 && d.name.size() <= 100
-            && d.answers is map
-            && d.answers.keys().hasOnly(event.fieldIds)
-            && validAnswerValues(d.answers.values())
+            && d.realName == me.realName
+            && d.nickname == me.nickname
+            && d.email == me.email
             && d.createdAt == request.time;
         }
       }
+    }
+
+    // ------------------------------------------------------------------
+    // registrations の collectionGroup 検索：マイページで自分の申込を探す。
+    // where('uid', '==', 自分の uid) で絞り込んで読む
+    // ------------------------------------------------------------------
+    match /{path=**}/registrations/{uid} {
+      allow read: if signedIn() && resource.data.uid == request.auth.uid;
     }
   }
 }

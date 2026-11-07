@@ -1,5 +1,5 @@
-// イベント（events）の読み書き。権限と入力の確認はルール（firebase/firestore.next.rules）が行う。
-// db を引数で受け取るのは、エミュレーターのテスト（tests/next/rules/）からも同じ関数を使うため。
+// イベント（events）の読み書き。権限と入力の確認はルール（firebase/firestore.rules）が行う。
+// db を引数で受け取るのは、エミュレーターのテスト（tests/rules/）からも同じ関数を使うため。
 import {
   Timestamp,
   collection,
