@@ -1,4 +1,5 @@
 // 通知メールの文面。Firestore には触らず、渡された値から件名と本文を組み立てる。
+import { formatDateTime, formatEventDate } from './time';
 export interface Mail {
   subject: string;
   text: string;
@@ -52,6 +53,63 @@ export function adminMail(groupName: string, siteUrl: string, subject: string, b
   return {
     subject: `【${groupName}】${subject}`,
     text: [body.trimEnd(), '', '---', `このメールは ${groupName} の管理者が送りました。`, siteUrl, ''].join('\n'),
+  };
+}
+
+/** 受付メールとリマインドに載せるイベントの内容 */
+export interface EventSummary {
+  id: string;
+  title: string;
+  startAt: Date;
+  endAt: Date;
+  venue: string;
+  address: string;
+}
+
+function eventLines(siteUrl: string, event: EventSummary): string[] {
+  return [
+    `■ ${event.title}`,
+    `日時：${formatEventDate(event.startAt, event.endAt)}`,
+    `会場：${event.venue}`,
+    ...(event.address ? [`住所：${event.address}`] : []),
+    '',
+    'イベントの詳細は、次のページをご覧ください。',
+    pageUrl(siteUrl, `/events/${event.id}`),
+  ];
+}
+
+/** 本人宛て：イベントへの申込を受け付けたことを知らせる */
+export function confirmationMail(groupName: string, siteUrl: string, event: EventSummary, nickname: string): Mail {
+  return {
+    subject: `【${groupName}】お申し込みを受け付けました：${event.title}`,
+    text: [
+      `${nickname} さん`,
+      '',
+      `${groupName} です。次のイベントへのお申し込みを受け付けました。`,
+      '',
+      ...eventLines(siteUrl, event),
+      '',
+      `都合が悪くなったときは、上のページからキャンセルしてください（${formatDateTime(event.startAt)} まで受け付けます）。`,
+      '開催の前日に、あらためてご案内のメールをお送りします。',
+      '',
+    ].join('\n'),
+  };
+}
+
+/** 本人宛て：開催の前日に知らせる */
+export function reminderMail(groupName: string, siteUrl: string, event: EventSummary, nickname: string): Mail {
+  return {
+    subject: `【${groupName}】明日開催：${event.title}`,
+    text: [
+      `${nickname} さん`,
+      '',
+      `${groupName} です。お申し込みいただいたイベントは、いよいよ明日です。`,
+      '',
+      ...eventLines(siteUrl, event),
+      '',
+      '参加できなくなったときは、上のページからキャンセルしてください。',
+      '',
+    ].join('\n'),
   };
 }
 

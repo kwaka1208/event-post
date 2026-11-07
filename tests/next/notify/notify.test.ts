@@ -196,6 +196,138 @@ describe('承認の通知', () => {
   });
 });
 
+describe('受付メールとリマインド', () => {
+  // 開催は 2026-12-05 10:00（JST）
+  const startAt = new Date('2026-12-05T10:00:00+09:00');
+  const before = new Date('2026-12-01T12:00:00+09:00');
+  const remindTime = new Date('2026-12-04T18:30:00+09:00');
+
+  async function addEvent(id: string, extra: Record<string, unknown> = {}) {
+    await db.doc(`events/${id}`).set({
+      title: `${id} のイベント`,
+      body: '',
+      startAt: Timestamp.fromDate(startAt),
+      endAt: Timestamp.fromMillis(startAt.getTime() + 2 * 60 * 60 * 1000),
+      deadlineAt: Timestamp.fromDate(startAt),
+      venue: '公民館',
+      address: '',
+      capacity: null,
+      published: true,
+      registrationCount: 0,
+      createdAt: nextTime(),
+      updatedAt: nextTime(),
+      ...extra,
+    });
+  }
+
+  async function addRegistration(eventId: string, uid: string, extra: Record<string, unknown> = {}) {
+    await db.doc(`events/${eventId}/registrations/${uid}`).set({
+      uid,
+      realName: `${uid} 本名`,
+      nickname: `${uid} さん`,
+      email: `${uid}@example.org`,
+      createdAt: nextTime(),
+      ...extra,
+    });
+  }
+
+  it('申込者に受付メールを送って記録し、次の回では送らない', async () => {
+    await addEvent('ev1');
+    await addRegistration('ev1', 'a');
+    await addRegistration('ev1', 'b');
+    const { sent, send } = sender();
+
+    const result = await run({ send, now: before });
+    expect(sent.map((s) => s.to.email)).toEqual(['a@example.org', 'b@example.org']);
+    expect(sent[0].mail.subject).toBe('【テストの会】お申し込みを受け付けました：ev1 のイベント');
+    expect(sent[0].mail.text).toContain(`${siteUrl}/events/ev1`);
+    expect(result.sent.map((d) => d.kind)).toEqual(['confirmation', 'confirmation']);
+    expect((await data('events/ev1/registrations/a'))?.confirmedAt).toBeDefined();
+
+    const again = sender();
+    await run({ send: again.send, now: before });
+    expect(again.sent).toEqual([]);
+  });
+
+  it('前日の指定の時刻を過ぎたら、リマインドを送って記録する', async () => {
+    await addEvent('ev1');
+    await addRegistration('ev1', 'a', { confirmedAt: nextTime() });
+    const { sent, send } = sender();
+
+    await run({ send, now: remindTime, reminderHour: 18 });
+    expect(sent.map((s) => s.mail.subject)).toEqual(['【テストの会】明日開催：ev1 のイベント']);
+    expect((await data('events/ev1/registrations/a'))?.remindedAt).toBeDefined();
+
+    const again = sender();
+    await run({ send: again.send, now: remindTime, reminderHour: 18 });
+    expect(again.sent).toEqual([]);
+  });
+
+  it('指定の時刻より前なら、リマインドを送らない', async () => {
+    await addEvent('ev1');
+    await addRegistration('ev1', 'a', { confirmedAt: nextTime() });
+    const { sent, send } = sender();
+    await run({ send, now: remindTime, reminderHour: 20 });
+    expect(sent).toEqual([]);
+  });
+
+  it('リマインドの時間帯に申し込んだ人には、受付メールとリマインドを続けて送る', async () => {
+    await addEvent('ev1');
+    await addRegistration('ev1', 'a');
+    const { sent, send } = sender();
+    const result = await run({ send, now: remindTime, reminderHour: 18 });
+    expect(result.sent.map((d) => d.kind)).toEqual(['confirmation', 'reminder']);
+    expect(sent).toHaveLength(2);
+  });
+
+  it('開始したイベント、下書きのイベントには送らない', async () => {
+    await addEvent('started');
+    await addEvent('draft', { published: false });
+    await addRegistration('started', 'a');
+    await addRegistration('draft', 'b');
+    const { sent, send } = sender();
+    await run({ send, now: new Date('2026-12-05T10:30:00+09:00') });
+    await run({ send, now: before });
+    // 開始前の回では、下書きでない started にだけ受付メールを送る
+    expect(sent.map((s) => s.to.email)).toEqual(['a@example.org']);
+  });
+
+  it('送れなかった人は記録せず、次の回に送り直す', async () => {
+    await addEvent('ev1');
+    await addRegistration('ev1', 'a');
+    await run({ send: sender(['a@example.org']).send, now: before });
+    expect((await data('events/ev1/registrations/a'))?.confirmedAt).toBeUndefined();
+    const retry = sender();
+    await run({ send: retry.send, now: before });
+    expect(retry.sent).toHaveLength(1);
+  });
+
+  it('送信中にキャンセルされた申込は、記録できなくても止まらない', async () => {
+    await addEvent('ev1');
+    await addRegistration('ev1', 'a');
+    await addRegistration('ev1', 'b');
+    const send = async (to: Recipient) => {
+      if (to.email === 'a@example.org') await db.doc('events/ev1/registrations/a').delete();
+    };
+    const result = await run({ send, now: before });
+    expect(result.sent).toHaveLength(2);
+    expect((await data('events/ev1/registrations/b'))?.confirmedAt).toBeDefined();
+  });
+
+  it('dryRun では、送らず記録もしない', async () => {
+    await addEvent('ev1');
+    await addRegistration('ev1', 'a');
+    const { sent, send } = sender();
+    const result = await run({ send, now: remindTime, dryRun: true });
+    expect(sent).toEqual([]);
+    expect(result.sent).toEqual([
+      { kind: 'confirmation', uid: 'a', eventId: 'ev1' },
+      { kind: 'reminder', uid: 'a', eventId: 'ev1' },
+    ]);
+    expect((await data('events/ev1/registrations/a'))?.confirmedAt).toBeUndefined();
+  });
+});
+
 describe('管理者のメール', () => {
   const to = (uid: string) => ({ uid, name: `${uid} 本名`, email: `${uid}@example.org` });
 

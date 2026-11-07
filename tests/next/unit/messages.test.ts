@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { adminMail, applicationsMail, pageUrl, welcomeMail } from '../../../scripts/next/lib/messages';
+import {
+  adminMail,
+  applicationsMail,
+  confirmationMail,
+  pageUrl,
+  reminderMail,
+  welcomeMail,
+} from '../../../scripts/next/lib/messages';
 
 const siteUrl = 'https://example.github.io/event-post';
 
@@ -47,5 +54,37 @@ describe('adminMail', () => {
     expect(mail.text).toBe(
       ['来週集まります。', '持ち物はありません。', '', '---', 'このメールは テストの会 の管理者が送りました。', siteUrl, ''].join('\n'),
     );
+  });
+});
+
+describe('受付メールとリマインド', () => {
+  const event = {
+    id: 'ev1',
+    title: 'はじめてのプログラミング',
+    startAt: new Date('2026-12-05T10:00:00+09:00'),
+    endAt: new Date('2026-12-05T12:00:00+09:00'),
+    venue: '中部公民館',
+    address: '奈良市三条本町',
+  };
+
+  it('受付メールに、イベントの内容、詳細ページ、キャンセルの期限を載せる', () => {
+    const mail = confirmationMail('テストの会', siteUrl, event, 'はなこ');
+    expect(mail.subject).toBe('【テストの会】お申し込みを受け付けました：はじめてのプログラミング');
+    expect(mail.text).toContain('はなこ さん');
+    expect(mail.text).toContain('日時：2026年12月5日(土) 10:00〜12:00');
+    expect(mail.text).toContain('会場：中部公民館');
+    expect(mail.text).toContain('住所：奈良市三条本町');
+    expect(mail.text).toContain(`${siteUrl}/events/ev1`);
+    expect(mail.text).toContain('2026年12月5日(土) 10:00 まで受け付けます');
+  });
+
+  it('住所がなければ、住所の行を出さない', () => {
+    expect(confirmationMail('テストの会', siteUrl, { ...event, address: '' }, 'はなこ').text).not.toContain('住所：');
+  });
+
+  it('リマインドの件名は「明日開催」', () => {
+    const mail = reminderMail('テストの会', siteUrl, event, 'はなこ');
+    expect(mail.subject).toBe('【テストの会】明日開催：はじめてのプログラミング');
+    expect(mail.text).toContain('いよいよ明日です');
   });
 });

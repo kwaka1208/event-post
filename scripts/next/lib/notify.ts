@@ -1,8 +1,20 @@
-// 参加申し込みの通知（管理者宛て）、承認の通知（本人宛て）、管理者が書いたメール（mails）。毎時の Actions から実行する。
-// 送ったかどうかは applications の notifiedAt、members の welcomedAt、mails の deliveredUids だけで判定する。
+// 参加申し込みの通知（管理者宛て）、承認の通知（本人宛て）、イベントの受付メールとリマインド（本人宛て）、
+// 管理者が書いたメール（mails）。毎時の Actions から実行する。
+// 送ったかどうかは applications の notifiedAt、members の welcomedAt、registrations の confirmedAt・remindedAt、
+// mails の deliveredUids だけで判定する。
 // 送信に成功してから記録するので、失敗した分は次の回に送り直す。
 import { FieldValue, type DocumentReference, type Firestore } from 'firebase-admin/firestore';
-import { adminMail, applicationsMail, welcomeMail, type ApplicantSummary, type Mail } from './messages';
+import {
+  adminMail,
+  applicationsMail,
+  confirmationMail,
+  reminderMail,
+  welcomeMail,
+  type ApplicantSummary,
+  type EventSummary,
+  type Mail,
+} from './messages';
+import { isReminderDue } from './time';
 
 export interface Recipient {
   name: string;
@@ -18,9 +30,26 @@ export interface NotifyOptions {
   send: SendMail;
   /** true なら送信も書き込みもせず、予定だけを返す */
   dryRun: boolean;
+  /** リマインドを送り始める、開催前日の時刻（日本時間の時）。既定は DEFAULT_REMINDER_HOUR */
+  reminderHour?: number;
+  /** 今の時刻（テスト用）。既定は実行した時刻 */
+  now?: Date;
 }
 
-export type DeliveryKind = 'applications' | 'welcome' | 'mail';
+export const DEFAULT_REMINDER_HOUR = 18;
+
+/** REMINDER_HOUR を読む。空なら既定の時刻 */
+export function parseReminderHour(value: string | undefined): number {
+  if (value === undefined || value.trim() === '') return DEFAULT_REMINDER_HOUR;
+  const hour = Number(value);
+  if (!Number.isInteger(hour) || hour < 0 || hour > 23) {
+    throw new Error(`環境変数 REMINDER_HOUR は 0〜23 の整数にしてください（今の値：${value}）`);
+  }
+  return hour;
+}
+
+
+export type DeliveryKind = 'applications' | 'welcome' | 'confirmation' | 'reminder' | 'mail';
 
 export interface Delivery {
   kind: DeliveryKind;
@@ -28,6 +57,8 @@ export interface Delivery {
   uid: string;
   /** 管理者のメールのとき、その ID */
   mailId?: string;
+  /** 受付メールとリマインドのとき、イベントの ID */
+  eventId?: string;
 }
 
 export interface NotifyResult {
@@ -42,6 +73,8 @@ export interface NotifyResult {
   completedMails: number;
   /** 管理者のメールのうち、送り直しても届かない宛先があり、一部失敗で止めた件数 */
   failedMails: number;
+  /** 受付メールとリマインドの対象にしたイベント（dryRun の見本に使う） */
+  events: Map<string, EventSummary>;
   warnings: string[];
 }
 
@@ -63,6 +96,7 @@ export async function runNotify(opts: NotifyOptions): Promise<NotifyResult> {
     notifiedApplications: 0,
     completedMails: 0,
     failedMails: 0,
+    events: new Map(),
     warnings: [],
   };
   let consecutiveFailures = 0;
@@ -128,6 +162,38 @@ export async function runNotify(opts: NotifyOptions): Promise<NotifyResult> {
     const to = { name: member.get('realName'), email: member.get('email') };
     const mail = welcomeMail(groupName, siteUrl, member.get('nickname'));
     if ((await deliver({ kind: 'welcome', uid: member.id }, to, mail)) && !dryRun) await record(member.ref, 'welcomedAt');
+  }
+
+  // 受付メールとリマインド：開始前の公開中のイベントの申込者に送る。キャンセルした人は申込が消えているので送らない
+  const now = opts.now ?? new Date();
+  const reminderHour = opts.reminderHour ?? DEFAULT_REMINDER_HOUR;
+  const events = (await db.collection('events').where('published', '==', true).get()).docs
+    .filter((e) => e.get('startAt').toMillis() > now.getTime())
+    .sort((a, b) => a.get('startAt').toMillis() - b.get('startAt').toMillis());
+  for (const doc of events) {
+    const event: EventSummary = {
+      id: doc.id,
+      title: doc.get('title'),
+      startAt: doc.get('startAt').toDate(),
+      endAt: doc.get('endAt').toDate(),
+      venue: doc.get('venue'),
+      address: doc.get('address') ?? '',
+    };
+    result.events.set(doc.id, event);
+    const remind = isReminderDue(event.startAt, reminderHour, now);
+    const regs = await doc.ref.collection('registrations').orderBy('createdAt').get();
+    for (const reg of regs.docs) {
+      const to = { name: reg.get('realName'), email: reg.get('email') };
+      const delivery = { uid: reg.id, eventId: doc.id };
+      if (reg.get('confirmedAt') == null) {
+        const mail = confirmationMail(groupName, siteUrl, event, reg.get('nickname'));
+        if ((await deliver({ kind: 'confirmation', ...delivery }, to, mail)) && !dryRun) await record(reg.ref, 'confirmedAt');
+      }
+      if (remind && reg.get('remindedAt') == null) {
+        const mail = reminderMail(groupName, siteUrl, event, reg.get('nickname'));
+        if ((await deliver({ kind: 'reminder', ...delivery }, to, mail)) && !dryRun) await record(reg.ref, 'remindedAt');
+      }
+    }
   }
 
   // 管理者のメール：送信待ちのものを、書いた順に宛先へ 1 人ずつ送る（ほかの人のアドレスが見えないように）。
