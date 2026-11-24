@@ -1,4 +1,4 @@
-// マイページでの名前の変更（members と、開始前のイベントの申込の写し）と、
+// マイページでの名前の変更（members と、開始前のイベントの申込の写し）、退会と、
 // メンバーから管理者への問い合わせ（inquiries）のルール
 import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -21,7 +21,7 @@ import {
   type Firestore,
 } from 'firebase/firestore';
 import { deleteInquiry, listInquiries, sendInquiry } from '../../web/src/lib/inquiries';
-import { updateProfile, type Member, type Role } from '../../web/src/lib/membership';
+import { updateProfile, withdraw, type Member, type Role } from '../../web/src/lib/membership';
 
 const PROJECT_ID = 'demo-event-post';
 
@@ -94,7 +94,7 @@ async function seedMember(uid: string, role: Role) {
 }
 
 /** イベントと、uid の申込を直接作る。start は今からの時間（ミリ秒。負なら開始後） */
-async function seedRegisteredEvent(id: string, uid: string, start: number) {
+async function seedRegisteredEvent(id: string, uid: string, start: number, overrides: Record<string, unknown> = {}) {
   const now = Date.now();
   const m = memberOf(uid);
   await seed(async (db) => {
@@ -111,6 +111,7 @@ async function seedRegisteredEvent(id: string, uid: string, start: number) {
       registrationCount: 1,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
+      ...overrides,
     });
     await setDoc(doc(db, 'events', id, 'registrations', uid), {
       uid,
@@ -205,6 +206,69 @@ describe('名前の変更', () => {
     await seed((db) => updateDoc(doc(db, 'members', 'bob'), NEW_NAME));
     await assertFails(updateDoc(doc(userDb('bob'), 'events', 'soon', 'registrations', 'alice'), NEW_NAME));
     await assertFails(updateDoc(doc(userDb('admin'), 'events', 'soon', 'registrations', 'alice'), NEW_NAME));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 退会
+// ---------------------------------------------------------------------------
+
+describe('退会', () => {
+  it('参加者と管理者は、本人が退会できる', async () => {
+    await assertSucceeds(withdraw(userDb('alice'), 'alice', [], []));
+    await assertSucceeds(withdraw(userDb('admin'), 'admin', [], []));
+    expect(await read('members/alice')).toBeUndefined();
+    expect(await read('members/admin')).toBeUndefined();
+  });
+
+  it('特権管理者は退会できない', async () => {
+    await assertFails(withdraw(userDb('owner'), 'owner', [], []));
+    expect(await read('members/owner')).toBeDefined();
+  });
+
+  it('ほかの参加者を退会させることはできない', async () => {
+    await assertFails(withdraw(userDb('bob'), 'alice', [], []));
+    expect(await read('members/alice')).toBeDefined();
+  });
+
+  it('開始前のイベントの申込はキャンセルして申込数を減らし、開始後の申込は記録として残す', async () => {
+    await seedRegisteredEvent('soon', 'alice', 3 * DAY);
+    await seedRegisteredEvent('started', 'alice', -HOUR);
+    await assertSucceeds(withdraw(userDb('alice'), 'alice', ['soon'], []));
+    expect(await read('events/soon/registrations/alice')).toBeUndefined();
+    expect((await read('events/soon'))?.registrationCount).toBe(0);
+    expect(await read('events/started/registrations/alice')).toBeDefined();
+    expect(await read('members/alice')).toBeUndefined();
+  });
+
+  it('開始日時が分からないイベントは、開始前ならキャンセルし、開始後ならそのまま退会する', async () => {
+    await seedRegisteredEvent('draft-soon', 'alice', 3 * DAY, { published: false });
+    await seedRegisteredEvent('draft-started', 'alice', -HOUR, { published: false });
+    await assertSucceeds(withdraw(userDb('alice'), 'alice', [], ['draft-soon', 'draft-started']));
+    expect(await read('events/draft-soon/registrations/alice')).toBeUndefined();
+    expect(await read('events/draft-started/registrations/alice')).toBeDefined();
+    expect(await read('members/alice')).toBeUndefined();
+  });
+
+  it('開始前と分かっているイベントのキャンセルに失敗したら、退会しない', async () => {
+    await seedRegisteredEvent('started', 'alice', -HOUR);
+    await assertFails(withdraw(userDb('alice'), 'alice', ['started'], []));
+    expect(await read('members/alice')).toBeDefined();
+  });
+
+  it('退会したあとは、もう一度参加を申し込める', async () => {
+    await seed((db) => setDoc(doc(db, 'group/profile'), { name: 'g', description: '', ownerName: 'o', ownerUid: 'owner', createdAt: Timestamp.now() }));
+    await withdraw(userDb('alice'), 'alice', [], []);
+    await assertSucceeds(
+      setDoc(doc(userDb('alice'), 'applications', 'alice'), {
+        uid: 'alice',
+        realName: 'alice 本名',
+        nickname: 'alice',
+        reason: 'また参加したいです。',
+        email: 'alice@example.com',
+        createdAt: serverTimestamp(),
+      }),
+    );
   });
 });
 

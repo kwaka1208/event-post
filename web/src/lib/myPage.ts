@@ -46,3 +46,17 @@ export function profileSyncEventIds(registrations: MyRegistration[], events: Map
     })
     .map((r) => r.eventId);
 }
+
+/**
+ * 退会するときにキャンセルする申込のイベント。
+ * cancel は開始前と分かっているイベント、tryCancel は下書きに戻されるなどで読めず、開始日時が分からないイベント
+ */
+export function withdrawCancelTargets(
+  registrations: MyRegistration[],
+  events: Map<string, EventDoc | null>,
+  now: Date,
+): { cancel: string[]; tryCancel: string[] } {
+  const cancel = profileSyncEventIds(registrations, events, now);
+  const tryCancel = registrations.filter((r) => !events.get(r.eventId)).map((r) => r.eventId);
+  return { cancel, tryCancel };
+}

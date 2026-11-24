@@ -15,6 +15,8 @@ import {
   type Firestore,
   type Timestamp,
 } from 'firebase/firestore';
+import { isPermissionDenied } from './errors';
+import { cancelRegistration } from './registrations';
 
 export type Role = 'owner' | 'admin' | 'member';
 /** 承認や役割の変更で選べる役割（owner はグループの作成者だけ） */
@@ -156,6 +158,29 @@ export async function updateProfile(db: Firestore, uid: string, input: ProfileIn
     }
     await batch.commit();
   }
+}
+
+/**
+ * 本人が退会する。先に開始前のイベントの申込をキャンセルしてから（定員の枠を空ける）、members を消す。
+ * cancelEventIds は開始前と分かっているイベントで、キャンセルに失敗したら退会しない。
+ * tryCancelEventIds は下書きに戻されて開始日時が分からないイベントで、開始後でキャンセルできなければそのままにする。
+ * 開始後のイベントの申込は、参加の記録として残す。特権管理者はルールで退会できない
+ */
+export async function withdraw(
+  db: Firestore,
+  uid: string,
+  cancelEventIds: string[],
+  tryCancelEventIds: string[],
+): Promise<void> {
+  for (const eventId of cancelEventIds) await cancelRegistration(db, eventId, uid);
+  for (const eventId of tryCancelEventIds) {
+    try {
+      await cancelRegistration(db, eventId, uid);
+    } catch (e) {
+      if (!isPermissionDenied(e)) throw e;
+    }
+  }
+  await deleteDoc(memberRef(db, uid));
 }
 
 /** 役割を変える（特権管理者だけ） */

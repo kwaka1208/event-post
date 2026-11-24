@@ -1,6 +1,6 @@
 // トップページ。グループ名・管理者の名前・説明と、ログインのボタンを出す。誰でも見られる
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { LoginButton } from '@/components/LoginButton';
 import { LoadError, Loading } from '@/components/Status';
 import { homePathFor } from '@/lib/session';
@@ -9,6 +9,8 @@ import { useSession } from '@/session/SessionProvider';
 export function TopPage() {
   const { state } = useSession();
   const navigate = useNavigate();
+  // マイページから退会してきたとき
+  const withdrawn = (useLocation().state as { withdrawn?: boolean } | null)?.withdrawn === true;
   // このページでログインしたときだけ、ログイン後の画面へ移す（戻ってきた人は移さない）
   const [justLoggedIn, setJustLoggedIn] = useState(false);
 
@@ -46,6 +48,11 @@ export function TopPage() {
       </section>
 
       <section className="card">
+        {withdrawn && (
+          <p className="notice" role="status">
+            退会しました。ご参加ありがとうございました。
+          </p>
+        )}
         {session.kind === 'guest' && (
           <>
             <p>このグループのページは、参加しているメンバーだけが見られます。Google アカウントでログインしてください。</p>
