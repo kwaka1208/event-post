@@ -1,7 +1,7 @@
 import { Timestamp } from 'firebase/firestore';
 import { describe, expect, it } from 'vitest';
 import type { EventDoc } from '../../web/src/lib/events';
-import { profileSyncEventIds, splitMyEvents } from '../../web/src/lib/myPage';
+import { profileSyncEventIds, splitMyEvents, withdrawCancelTargets } from '../../web/src/lib/myPage';
 import type { MyRegistration } from '../../web/src/lib/registrations';
 
 const now = new Date('2026-12-01T12:00');
@@ -73,5 +73,18 @@ describe('名前を変えたときに写しをそろえるイベント', () => {
     ]);
     const regs = ['later', 'draft', 'ongoing', 'old', 'hidden'].map(reg);
     expect(profileSyncEventIds(regs, events, now)).toEqual(['later', 'draft']);
+  });
+});
+
+describe('退会するときにキャンセルする申込', () => {
+  it('開始前のイベントはキャンセルし、読めないイベントはできればキャンセルする', () => {
+    const events = new Map<string, EventDoc | null>([
+      ['later', eventAt('later', '2026-12-20T10:00')],
+      ['ongoing', eventAt('ongoing', '2026-12-01T11:00')],
+      ['old', eventAt('old', '2026-10-01T10:00')],
+      ['hidden', null],
+    ]);
+    const regs = ['later', 'ongoing', 'old', 'hidden'].map(reg);
+    expect(withdrawCancelTargets(regs, events, now)).toEqual({ cancel: ['later'], tryCancel: ['hidden'] });
   });
 });

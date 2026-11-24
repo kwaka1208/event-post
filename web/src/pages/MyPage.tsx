@@ -1,8 +1,8 @@
 // マイページ（メンバー）。自分の情報と、申し込んだイベント（これから・参加した）を表示する。
-// 自分の本名とニックネームはここで変えられる。キャンセルはイベントの詳細画面で行う
+// 自分の本名とニックネームの変更と、退会もここで行う。キャンセルはイベントの詳細画面で行う
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { useMember } from '@/components/RequireMember';
 import { Loading, LoadError } from '@/components/Status';
 import { TextField } from '@/components/TextField';
@@ -12,8 +12,8 @@ import { getEvent, type EventDoc } from '@/lib/events';
 import { db } from '@/lib/firebase';
 import { formatDateTime, formatEventDate } from '@/lib/format';
 import { LIMITS } from '@/lib/limits';
-import { updateProfile, type Member, type Role } from '@/lib/membership';
-import { profileSyncEventIds, splitMyEvents, type MyEvent } from '@/lib/myPage';
+import { updateProfile, withdraw, type Member, type Role } from '@/lib/membership';
+import { profileSyncEventIds, splitMyEvents, withdrawCancelTargets, type MyEvent } from '@/lib/myPage';
 import { listMyRegistrations } from '@/lib/registrations';
 import { useSession } from '@/session/SessionProvider';
 
@@ -45,6 +45,9 @@ export function MyPage() {
   const now = new Date();
   const { upcoming, past, hiddenCount } = splitMyEvents(data.data.registrations, data.data.events, now);
   const syncEventIds = profileSyncEventIds(data.data.registrations, data.data.events, now);
+  const cancelTargets = withdrawCancelTargets(data.data.registrations, data.data.events, now);
+  // 退会の確認で、キャンセルされるイベントの名前を見せる（開始前のもの）
+  const cancelTitles = upcoming.filter(({ event }) => cancelTargets.cancel.includes(event.id)).map(({ event }) => event.title);
 
   return (
     <main className="main">
@@ -78,6 +81,8 @@ export function MyPage() {
       {hiddenCount > 0 && <p className="help">非公開になったイベントが {hiddenCount} 件あります。</p>}
 
       <Profile me={me} syncEventIds={syncEventIds} />
+
+      <Withdraw me={me} targets={cancelTargets} cancelTitles={cancelTitles} />
     </main>
   );
 }
@@ -213,6 +218,85 @@ function ProfileForm({
         </button>
       </div>
     </form>
+  );
+}
+
+/** 退会。特権管理者は退会できないので、その旨だけを出す */
+function Withdraw({
+  me,
+  targets,
+  cancelTitles,
+}: {
+  me: Member;
+  targets: { cancel: string[]; tryCancel: string[] };
+  cancelTitles: string[];
+}) {
+  const { logout } = useSession();
+  const navigate = useNavigate();
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleWithdraw() {
+    setBusy(true);
+    setError(null);
+    try {
+      await withdraw(db, me.uid, targets.cancel, targets.tryCancel);
+    } catch {
+      setError('退会できませんでした。通信状況を確認して、もう一度お試しください。');
+      setBusy(false);
+      return;
+    }
+    navigate('/', { state: { withdrawn: true } });
+    await logout();
+  }
+
+  return (
+    <section className="card" aria-labelledby="my-withdraw">
+      <h2 id="my-withdraw" className="card-title">
+        退会
+      </h2>
+      {me.role === 'owner' ? (
+        <p className="help">特権管理者はグループを作った人なので、退会できません。</p>
+      ) : confirming ? (
+        <div className="confirm" role="group" aria-label="退会の確認">
+          <p>このグループから退会します。よろしいですか？</p>
+          {cancelTitles.length > 0 && (
+            <>
+              <p>申し込んでいる次のイベントは、キャンセルされます。</p>
+              <ul>
+                {cancelTitles.map((title, i) => (
+                  <li key={i}>{title}</li>
+                ))}
+              </ul>
+            </>
+          )}
+          <p className="help">
+            退会すると、イベントの一覧やマイページは見られなくなります。参加したイベントの記録は残ります。もう一度参加したいときは、参加を申し込み直してください。
+          </p>
+          {error && (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          )}
+          <div className="actions">
+            <button type="button" className="button-danger" disabled={busy} onClick={() => void handleWithdraw()}>
+              退会する
+            </button>
+            <button type="button" className="button-secondary" disabled={busy} onClick={() => setConfirming(false)}>
+              やめる
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <p>グループから抜けたいときは、ここから退会できます。</p>
+          <button type="button" className="button-secondary" onClick={() => setConfirming(true)}>
+            退会する
+          </button>
+        </>
+      )}
+    </section>
   );
 }
 
