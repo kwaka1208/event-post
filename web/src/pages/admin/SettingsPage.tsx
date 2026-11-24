@@ -62,6 +62,9 @@ function SettingsForm({ group }: { group: GroupProfile }) {
           required
           help="トップページに表示します。"
         />
+        <p className="help">
+          グループ名と説明は、SNS でサイトのリンクを共有したときのタイトルと説明（OGP）にも使います。OGP は次の Deploy のときに反映されます。すぐに反映したいときは、GitHub の Actions で Deploy を実行してください。
+        </p>
         {message && (
           <p className={message.kind === 'done' ? 'notice' : 'error'} role={message.kind === 'done' ? 'status' : 'alert'}>
             {message.text}

@@ -9,7 +9,7 @@
 
 | 差し替えない（グループのもの） | 差し替える（本体） |
 |---|---|
-| `.eventpost-keep` と、そこに書いたパス<br>`.eventpost-version`（取り込んだ版の記録）<br>`site/`（旧版の設定。新版では使いません） | それ以外のすべて。元のリポジトリと同じ内容になり、元で消えたファイルは消えます |
+| `custom/`（グループごとのファイル。OGP の画像など）<br>`.eventpost-keep` と、そこに書いたパス<br>`.eventpost-version`（取り込んだ版の記録）<br>`site/`（旧版の設定。新版では使いません） | それ以外のすべて。元のリポジトリと同じ内容になり、元で消えたファイルは消えます |
 
 - グループの設定（Firebase の値、返信先など）は、リポジトリの Variables と Secrets にあるので、更新しても変わりません。グループやイベントのデータは Firestore にあります
 - `site/` は、旧版から移ったリポジトリで設定を控えておけるように残します。新版では使わないので、移ったあとは消してかまいません（[旧版（v1）から移る](#旧版v1から移る)）
@@ -91,7 +91,7 @@ git fetch https://github.com/kwaka1208/event-post.git main
 ```bash
 # 2. 本体を消してから、最新版で置き換える（元で消えたファイルも消すため、先に消す）
 #    .eventpost-keep を作っている場合は、そこに書いたパスも :(top,exclude)パス の形で足す
-KEEP=(":(top,exclude)site" ":(top,exclude).eventpost-keep" ":(top,exclude).eventpost-version")
+KEEP=(":(top,exclude)custom" ":(top,exclude)site" ":(top,exclude).eventpost-keep" ":(top,exclude).eventpost-version")
 git rm -r -q --ignore-unmatch -- . "${KEEP[@]}"
 git checkout FETCH_HEAD -- . "${KEEP[@]}"
 echo "kwaka1208/event-post@$(git rev-parse FETCH_HEAD)" > .eventpost-version
