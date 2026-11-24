@@ -1,11 +1,11 @@
 // メンバーからの問い合わせ（管理者）。メールで届いたものと同じ内容を、新しい順に表示する。
-// 返信はメールで行う（届いたメールに返信するか、「メールで返信する」から）
+// 返信はメールで行う（届いたメールに返信するか、「Gmail で返信する」「メールアプリで返信する」から）
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Loading, LoadError } from '@/components/Status';
 import { db } from '@/lib/firebase';
 import { formatDateTime } from '@/lib/format';
-import { deleteInquiry, listInquiries, replyHref, type InquiryDoc } from '@/lib/inquiries';
+import { deleteInquiry, gmailReplyHref, listInquiries, replyHref, type InquiryDoc } from '@/lib/inquiries';
 import { inquiriesKey } from './adminKeys';
 
 export function InquiriesPage() {
@@ -86,8 +86,11 @@ function InquiryItem({ inquiry }: { inquiry: InquiryDoc }) {
         </div>
       ) : (
         <div className="actions">
+          <a className="button-secondary" href={gmailReplyHref(inquiry)} target="_blank" rel="noopener noreferrer">
+            Gmail で返信する
+          </a>
           <a className="button-secondary" href={replyHref(inquiry)}>
-            メールで返信する
+            メールアプリで返信する
           </a>
           <button type="button" className="button-text" onClick={() => setConfirming(true)}>
             削除する
