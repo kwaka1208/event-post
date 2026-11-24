@@ -504,9 +504,10 @@ describe('メンバー', () => {
       await assertFails(changeRole(userDb('owner'), 'owner', 'member'));
     });
 
-    it('役割以外の項目は書き換えられない', async () => {
+    it('役割以外の項目は書き換えられない（名前は本人だけがマイページで変える。tests/rules/profile.test.ts）', async () => {
       await assertFails(updateDoc(doc(userDb('owner'), 'members', 'member'), { realName: '変更' }));
-      await assertFails(updateDoc(doc(userDb('member'), 'members', 'member'), { nickname: '変更' }));
+      await assertFails(updateDoc(doc(userDb('member'), 'members', 'member'), { email: 'other@example.com' }));
+      await assertFails(updateDoc(doc(userDb('member'), 'members', 'member'), { joinedAt: serverTimestamp() }));
     });
   });
 

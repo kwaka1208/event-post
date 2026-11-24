@@ -3,6 +3,7 @@ import {
   adminMail,
   applicationsMail,
   confirmationMail,
+  inquiryMail,
   pageUrl,
   reminderMail,
   welcomeMail,
@@ -86,5 +87,29 @@ describe('受付メールとリマインド', () => {
     const mail = reminderMail('テストの会', siteUrl, event, 'はなこ');
     expect(mail.subject).toBe('【テストの会】明日開催：はじめてのプログラミング');
     expect(mail.text).toContain('いよいよ明日です');
+  });
+});
+
+describe('inquiryMail', () => {
+  const mail = inquiryMail('テストの会', siteUrl, {
+    realName: '山田 花子',
+    nickname: 'はなこ',
+    email: 'hanako@example.com',
+    subject: '次回の持ち物',
+    body: 'ノートパソコンは必要ですか？\n',
+  });
+
+  it('件名にグループ名と問い合わせの件名が入る', () => {
+    expect(mail.subject).toBe('【テストの会】問い合わせ：次回の持ち物');
+  });
+
+  it('本文に送った人、内容、問い合わせ一覧の URL が入る', () => {
+    expect(mail.text).toContain('送った人：山田 花子（はなこ）');
+    expect(mail.text).toContain('ノートパソコンは必要ですか？\n\n---');
+    expect(mail.text).toContain('https://example.github.io/event-post/admin/inquiries');
+  });
+
+  it('返信先は送った人', () => {
+    expect(mail.replyTo).toEqual({ name: '山田 花子', email: 'hanako@example.com' });
   });
 });

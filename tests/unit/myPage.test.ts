@@ -1,7 +1,7 @@
 import { Timestamp } from 'firebase/firestore';
 import { describe, expect, it } from 'vitest';
 import type { EventDoc } from '../../web/src/lib/events';
-import { splitMyEvents } from '../../web/src/lib/myPage';
+import { profileSyncEventIds, splitMyEvents } from '../../web/src/lib/myPage';
 import type { MyRegistration } from '../../web/src/lib/registrations';
 
 const now = new Date('2026-12-01T12:00');
@@ -59,5 +59,19 @@ describe('マイページのイベントの分け方', () => {
 
   it('申込がなければ、どれも空', () => {
     expect(splitMyEvents([], new Map(), now)).toEqual({ upcoming: [], past: [], hiddenCount: 0 });
+  });
+});
+
+describe('名前を変えたときに写しをそろえるイベント', () => {
+  it('開始前のイベントだけを選ぶ（開催中・終了後・読めないイベントは除く）', () => {
+    const events = new Map<string, EventDoc | null>([
+      ['later', eventAt('later', '2026-12-20T10:00')],
+      ['draft', eventAt('draft', '2026-12-10T10:00', { published: false })],
+      ['ongoing', eventAt('ongoing', '2026-12-01T11:00')],
+      ['old', eventAt('old', '2026-10-01T10:00')],
+      ['hidden', null],
+    ]);
+    const regs = ['later', 'draft', 'ongoing', 'old', 'hidden'].map(reg);
+    expect(profileSyncEventIds(regs, events, now)).toEqual(['later', 'draft']);
   });
 });

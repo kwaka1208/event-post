@@ -14,4 +14,6 @@ export const LIMITS = {
   mailBody: 10000,
   /** 1 通のメールの宛先の上限（Gmail の 1 日の送信上限が約 500 通のため） */
   mailRecipients: 500,
+  inquirySubject: 200,
+  inquiryBody: 5000,
 } as const;

@@ -1,17 +1,21 @@
 // マイページ（メンバー）。自分の情報と、申し込んだイベント（これから・参加した）を表示する。
-// キャンセルはイベントの詳細画面で行う
-import { useQuery } from '@tanstack/react-query';
+// 自分の本名とニックネームはここで変えられる。キャンセルはイベントの詳細画面で行う
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
 import { useMember } from '@/components/RequireMember';
 import { Loading, LoadError } from '@/components/Status';
+import { TextField } from '@/components/TextField';
 import { isPermissionDenied } from '@/lib/errors';
 import { eventKeys } from '@/lib/eventKeys';
 import { getEvent, type EventDoc } from '@/lib/events';
 import { db } from '@/lib/firebase';
 import { formatDateTime, formatEventDate } from '@/lib/format';
-import type { Role } from '@/lib/membership';
-import { splitMyEvents, type MyEvent } from '@/lib/myPage';
+import { LIMITS } from '@/lib/limits';
+import { isAdminRole, updateProfile, type Member, type Role } from '@/lib/membership';
+import { profileSyncEventIds, splitMyEvents, type MyEvent } from '@/lib/myPage';
 import { listMyRegistrations } from '@/lib/registrations';
+import { useSession } from '@/session/SessionProvider';
 
 const roleLabels: Record<Role, string> = { owner: '特権管理者', admin: '管理者', member: '参加者' };
 
@@ -38,7 +42,9 @@ export function MyPage() {
   if (data.isPending) return <Loading />;
   if (data.isError) return <LoadError />;
 
-  const { upcoming, past, hiddenCount } = splitMyEvents(data.data.registrations, data.data.events, new Date());
+  const now = new Date();
+  const { upcoming, past, hiddenCount } = splitMyEvents(data.data.registrations, data.data.events, now);
+  const syncEventIds = profileSyncEventIds(data.data.registrations, data.data.events, now);
 
   return (
     <main className="main">
@@ -71,24 +77,154 @@ export function MyPage() {
 
       {hiddenCount > 0 && <p className="help">非公開になったイベントが {hiddenCount} 件あります。</p>}
 
-      <section className="card" aria-labelledby="my-profile">
-        <h2 id="my-profile" className="card-title">
-          あなたの情報
-        </h2>
-        <dl className="summary">
-          <dt>名前（本名）</dt>
-          <dd>{me.realName}</dd>
-          <dt>ニックネーム</dt>
-          <dd>{me.nickname}</dd>
-          <dt>メールアドレス</dt>
-          <dd>{me.email}</dd>
-          <dt>役割</dt>
-          <dd>{roleLabels[me.role]}</dd>
-          <dt>参加日時</dt>
-          <dd>{me.joinedAt ? formatDateTime(me.joinedAt.toDate()) : '—'}</dd>
-        </dl>
-      </section>
+      <Profile me={me} syncEventIds={syncEventIds} />
+
+      {!isAdminRole(me.role) && (
+        <section className="card" aria-labelledby="my-contact">
+          <h2 id="my-contact" className="card-title">
+            管理者への連絡
+          </h2>
+          <p>イベントやグループについて、管理者にメールで問い合わせられます。</p>
+          <Link to="/contact" className="button-secondary">
+            管理者に問い合わせる
+          </Link>
+        </section>
+      )}
     </main>
+  );
+}
+
+/** あなたの情報。「変更する」で本名とニックネームを編集する */
+function Profile({ me, syncEventIds }: { me: Member; syncEventIds: string[] }) {
+  const [editing, setEditing] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  return (
+    <section className="card" aria-labelledby="my-profile">
+      <h2 id="my-profile" className="card-title">
+        あなたの情報
+      </h2>
+      {editing ? (
+        <ProfileForm
+          me={me}
+          syncEventIds={syncEventIds}
+          onDone={(changed) => {
+            setEditing(false);
+            setSaved(changed);
+          }}
+        />
+      ) : (
+        <>
+          {saved && (
+            <p className="notice" role="status">
+              変更しました。
+            </p>
+          )}
+          <dl className="summary">
+            <dt>名前（本名）</dt>
+            <dd>{me.realName}</dd>
+            <dt>ニックネーム</dt>
+            <dd>{me.nickname}</dd>
+            <dt>メールアドレス</dt>
+            <dd>{me.email}</dd>
+            <dt>役割</dt>
+            <dd>{roleLabels[me.role]}</dd>
+            <dt>参加日時</dt>
+            <dd>{me.joinedAt ? formatDateTime(me.joinedAt.toDate()) : '—'}</dd>
+          </dl>
+          <button
+            type="button"
+            className="button-secondary"
+            onClick={() => {
+              setSaved(false);
+              setEditing(true);
+            }}
+          >
+            名前を変更する
+          </button>
+        </>
+      )}
+    </section>
+  );
+}
+
+function ProfileForm({
+  me,
+  syncEventIds,
+  onDone,
+}: {
+  me: Member;
+  syncEventIds: string[];
+  onDone: (changed: boolean) => void;
+}) {
+  const { refresh } = useSession();
+  const queryClient = useQueryClient();
+  const [realName, setRealName] = useState(me.realName);
+  const [nickname, setNickname] = useState(me.nickname);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    const input = { realName: realName.trim(), nickname: nickname.trim() };
+    if (input.realName === me.realName && input.nickname === me.nickname) {
+      onDone(false);
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await updateProfile(db, me.uid, input, syncEventIds);
+      await Promise.all([refresh(), queryClient.invalidateQueries({ queryKey: eventKeys.all })]);
+      onDone(true);
+    } catch (e) {
+      // 名前の変更が済んでから申込の写しで失敗したときも、読み直して今の状態を見せる
+      await refresh().catch(() => {});
+      setError(
+        isPermissionDenied(e)
+          ? '変更できませんでした。入力内容を確認して、もう一度お試しください。'
+          : '変更できませんでした。通信状況を確認して、もう一度お試しください。',
+      );
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form className="stack" onSubmit={(e) => void handleSubmit(e)}>
+      <TextField
+        label="名前（本名）"
+        value={realName}
+        onChange={setRealName}
+        maxLength={LIMITS.personName}
+        required
+        help="管理者だけが見られます。"
+      />
+      <TextField
+        label="ニックネーム"
+        value={nickname}
+        onChange={setNickname}
+        maxLength={LIMITS.personName}
+        required
+        help="グループの中で表示する名前です。"
+      />
+      <p className="help">
+        メールアドレスはログインに使っている Google アカウントのものです。ここでは変えられません。
+        {syncEventIds.length > 0 && `申し込んでいる開催前のイベント ${syncEventIds.length} 件にも、新しい名前を反映します。`}
+      </p>
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="actions">
+        <button type="submit" className="button-primary" disabled={busy}>
+          保存する
+        </button>
+        <button type="button" className="button-secondary" disabled={busy} onClick={() => onDone(false)}>
+          やめる
+        </button>
+      </div>
+    </form>
   );
 }
 

@@ -469,6 +469,104 @@ describe('失敗が続いたとき', () => {
   });
 });
 
+describe('問い合わせの通知', () => {
+  async function addInquiry(id: string, uid: string, extra: Record<string, unknown> = {}) {
+    await db.doc(`inquiries/${id}`).set({
+      uid,
+      realName: `${uid} 本名`,
+      nickname: `${uid} さん`,
+      email: `${uid}@example.org`,
+      subject: '次回の持ち物',
+      body: 'ノートパソコンは必要ですか？',
+      createdAt: nextTime(),
+      ...extra,
+    });
+  }
+
+  beforeEach(async () => {
+    await addMember('alice', 'member', { welcomedAt: nextTime() });
+  });
+
+  it('管理者全員に 1 通ずつ送り、返信先を送った人にして、通知済みにする', async () => {
+    await addInquiry('q1', 'alice');
+    const { sent, send } = sender();
+
+    const result = await run({ send });
+    expect(sent.map((s) => s.to.email)).toEqual(['owner@example.org', 'admin@example.org']);
+    expect(sent[0].mail.subject).toBe('【テストの会】問い合わせ：次回の持ち物');
+    expect(sent[0].mail.text).toContain('alice 本名（alice さん）');
+    expect(sent[0].mail.text).toContain('ノートパソコンは必要ですか？');
+    expect(sent[0].mail.replyTo).toEqual({ name: 'alice 本名', email: 'alice@example.org' });
+    expect(result.notifiedInquiries).toBe(1);
+    expect((await data('inquiries/q1'))?.notifiedAt).toBeInstanceOf(Timestamp);
+
+    await run({ send });
+    expect(sent).toHaveLength(2);
+  });
+
+  it('古い順に送り、通知済みのものは送らない', async () => {
+    await addInquiry('q2', 'alice', { subject: '2 通目' });
+    await addInquiry('q1', 'alice', { subject: '古いもの', createdAt: Timestamp.fromMillis(0) });
+    await addInquiry('q0', 'alice', { notifiedAt: nextTime() });
+    const { sent, send } = sender();
+
+    await run({ send });
+    expect(sent.map((s) => s.mail.subject)).toEqual([
+      '【テストの会】問い合わせ：古いもの',
+      '【テストの会】問い合わせ：古いもの',
+      '【テストの会】問い合わせ：2 通目',
+      '【テストの会】問い合わせ：2 通目',
+    ]);
+  });
+
+  it('管理者が送ったときは、本人を除く管理者に送る', async () => {
+    await addInquiry('q1', 'admin');
+    const { sent, send } = sender();
+
+    await run({ send });
+    expect(sent.map((s) => s.to.email)).toEqual(['owner@example.org']);
+  });
+
+  it('管理者の 1 人にでも届けば通知済みにし、誰にも届かなければ次の回に送り直す', async () => {
+    await addInquiry('q1', 'alice');
+    const partial = sender(['admin@example.org']);
+    const result = await run({ send: partial.send });
+    expect(result.failed).toEqual([
+      { kind: 'inquiry', uid: 'admin', inquiryId: 'q1', error: '550 rejected: admin@example.org' },
+    ]);
+    expect((await data('inquiries/q1'))?.notifiedAt).toBeInstanceOf(Timestamp);
+
+    await addInquiry('q2', 'alice');
+    const none = sender(['owner@example.org', 'admin@example.org']);
+    await run({ send: none.send });
+    expect((await data('inquiries/q2'))?.notifiedAt).toBeUndefined();
+  });
+
+  it('送信中に削除された問い合わせは、記録できなくても止まらない', async () => {
+    await addInquiry('q1', 'alice');
+    const send = async () => {
+      await db.doc('inquiries/q1').delete();
+    };
+    const result = await run({ send });
+    expect(result.failed).toEqual([]);
+    expect(await data('inquiries/q1')).toBeUndefined();
+  });
+
+  it('dryRun では、送らず記録もしない', async () => {
+    await addInquiry('q1', 'alice');
+    const { sent, send } = sender();
+
+    const result = await run({ send, dryRun: true });
+    expect(sent).toEqual([]);
+    expect(result.sent).toEqual([
+      { kind: 'inquiry', uid: 'owner', inquiryId: 'q1' },
+      { kind: 'inquiry', uid: 'admin', inquiryId: 'q1' },
+    ]);
+    expect(result.notifiedInquiries).toBe(1);
+    expect((await data('inquiries/q1'))?.notifiedAt).toBeUndefined();
+  });
+});
+
 describe('dryRun', () => {
   it('送信も書き込みもせず、送る予定だけを返す', async () => {
     await addApplication('bob');

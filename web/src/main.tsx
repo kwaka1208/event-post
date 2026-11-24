@@ -15,10 +15,12 @@ const page = <K extends string>(load: () => Promise<Record<K, ComponentType>>, n
   lazy(() => load().then((m) => ({ default: m[name] })));
 const AdminEventsPage = page(() => import('@/pages/admin/AdminEventsPage'), 'AdminEventsPage');
 const ApplicationsPage = page(() => import('@/pages/admin/ApplicationsPage'), 'ApplicationsPage');
+const InquiriesPage = page(() => import('@/pages/admin/InquiriesPage'), 'InquiriesPage');
 const MailComposePage = page(() => import('@/pages/admin/MailComposePage'), 'MailComposePage');
 const MailsPage = page(() => import('@/pages/admin/MailsPage'), 'MailsPage');
 const MembersPage = page(() => import('@/pages/admin/MembersPage'), 'MembersPage');
 const SettingsPage = page(() => import('@/pages/admin/SettingsPage'), 'SettingsPage');
+const ContactPage = page(() => import('@/pages/ContactPage'), 'ContactPage');
 const EventDetailPage = page(() => import('@/pages/EventDetailPage'), 'EventDetailPage');
 const EventsPage = page(() => import('@/pages/EventsPage'), 'EventsPage');
 const JoinPage = page(() => import('@/pages/JoinPage'), 'JoinPage');
@@ -49,6 +51,7 @@ const router = createBrowserRouter(
             { path: '/events', element: <EventsPage /> },
             { path: '/events/:id', element: <EventDetailPage /> },
             { path: '/me', element: <MyPage /> },
+            { path: '/contact', element: <ContactPage /> },
           ],
         },
         {
@@ -61,6 +64,7 @@ const router = createBrowserRouter(
             { path: '/admin/members', element: <MembersPage /> },
             { path: '/admin/mails', element: <MailsPage /> },
             { path: '/admin/mails/new', element: <MailComposePage /> },
+            { path: '/admin/inquiries', element: <InquiriesPage /> },
             { path: '/admin/settings', element: <SettingsPage /> },
           ],
         },
