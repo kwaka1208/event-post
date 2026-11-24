@@ -131,6 +131,33 @@ export async function approveApplication(db: Firestore, app: Application, role: 
   await batch.commit();
 }
 
+export interface ProfileInput {
+  realName: string;
+  nickname: string;
+}
+
+/** 1 回の書き込みで写しをそろえる申込の数（ルールの get の回数の上限に収まるように） */
+const PROFILE_SYNC_CHUNK = 10;
+
+/**
+ * 本人が自分の本名とニックネームを変える。そのあと、開始前のイベントの申込に残っている名前の写しをそろえる
+ * （eventIds は開始前のイベントの ID。ルールが開始前かと、members と同じ名前かを確かめる）。
+ * 写しをそろえる途中で失敗しても、members の変更は残る
+ */
+export async function updateProfile(db: Firestore, uid: string, input: ProfileInput, eventIds: string[]): Promise<void> {
+  await updateDoc(memberRef(db, uid), { realName: input.realName, nickname: input.nickname });
+  for (let i = 0; i < eventIds.length; i += PROFILE_SYNC_CHUNK) {
+    const batch = writeBatch(db);
+    for (const eventId of eventIds.slice(i, i + PROFILE_SYNC_CHUNK)) {
+      batch.update(doc(db, 'events', eventId, 'registrations', uid), {
+        realName: input.realName,
+        nickname: input.nickname,
+      });
+    }
+    await batch.commit();
+  }
+}
+
 /** 役割を変える（特権管理者だけ） */
 export async function changeRole(db: Firestore, uid: string, role: AssignableRole): Promise<void> {
   await updateDoc(memberRef(db, uid), { role });

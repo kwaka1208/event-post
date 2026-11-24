@@ -33,3 +33,16 @@ export function splitMyEvents(registrations: MyRegistration[], events: Map<strin
   past.sort((a, b) => b.event.startAt.toMillis() - a.event.startAt.toMillis());
   return { upcoming, past, hiddenCount };
 }
+
+/**
+ * 名前を変えたときに写しをそろえる申込の、イベントの ID。開始前のイベントだけ（開始後はルールで変えられない）。
+ * 下書きに戻されて読めないイベントは、開始日時が分からないので含めない
+ */
+export function profileSyncEventIds(registrations: MyRegistration[], events: Map<string, EventDoc | null>, now: Date): string[] {
+  return registrations
+    .filter((r) => {
+      const event = events.get(r.eventId);
+      return !!event && event.startAt.toMillis() > now.getTime();
+    })
+    .map((r) => r.eventId);
+}

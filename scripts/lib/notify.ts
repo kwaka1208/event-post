@@ -1,13 +1,14 @@
 // 参加申し込みの通知（管理者宛て）、承認の通知（本人宛て）、イベントの受付メールとリマインド（本人宛て）、
-// 管理者が書いたメール（mails）。毎時の Actions から実行する。
+// 管理者が書いたメール（mails）、メンバーからの問い合わせ（inquiries。管理者宛て）。毎時の Actions から実行する。
 // 送ったかどうかは applications の notifiedAt、members の welcomedAt、registrations の confirmedAt・remindedAt、
-// mails の deliveredUids だけで判定する。
+// mails の deliveredUids、inquiries の notifiedAt だけで判定する。
 // 送信に成功してから記録するので、失敗した分は次の回に送り直す。
 import { FieldValue, type DocumentReference, type Firestore } from 'firebase-admin/firestore';
 import {
   adminMail,
   applicationsMail,
   confirmationMail,
+  inquiryMail,
   reminderMail,
   welcomeMail,
   type ApplicantSummary,
@@ -49,7 +50,7 @@ export function parseReminderHour(value: string | undefined): number {
 }
 
 
-export type DeliveryKind = 'applications' | 'welcome' | 'confirmation' | 'reminder' | 'mail';
+export type DeliveryKind = 'applications' | 'welcome' | 'confirmation' | 'reminder' | 'mail' | 'inquiry';
 
 export interface Delivery {
   kind: DeliveryKind;
@@ -59,6 +60,8 @@ export interface Delivery {
   mailId?: string;
   /** 受付メールとリマインドのとき、イベントの ID */
   eventId?: string;
+  /** 問い合わせの通知のとき、その ID */
+  inquiryId?: string;
 }
 
 export interface NotifyResult {
@@ -73,6 +76,8 @@ export interface NotifyResult {
   completedMails: number;
   /** 管理者のメールのうち、送り直しても届かない宛先があり、一部失敗で止めた件数 */
   failedMails: number;
+  /** 通知済みにした問い合わせの件数（dryRun では通知する予定の件数） */
+  notifiedInquiries: number;
   /** 受付メールとリマインドの対象にしたイベント（dryRun の見本に使う） */
   events: Map<string, EventSummary>;
   warnings: string[];
@@ -96,6 +101,7 @@ export async function runNotify(opts: NotifyOptions): Promise<NotifyResult> {
     notifiedApplications: 0,
     completedMails: 0,
     failedMails: 0,
+    notifiedInquiries: 0,
     events: new Map(),
     warnings: [],
   };
@@ -235,6 +241,33 @@ export async function runNotify(opts: NotifyOptions): Promise<NotifyResult> {
         ...(giveUp ? { status: 'failed', sentAt: FieldValue.serverTimestamp() } : {}),
       });
       if (saved && giveUp) result.failedMails++;
+    }
+  }
+
+  // 問い合わせ：古い順に、送った人を除く管理者全員へ 1 通ずつ送る。返信先は送った人。
+  // 申し込みの通知と同じく、1 人にでも届けば通知済みにする
+  const inquiries = (await db.collection('inquiries').orderBy('createdAt').get()).docs.filter(
+    (q) => q.get('notifiedAt') == null,
+  );
+  for (const doc of inquiries) {
+    if (result.stopped) break;
+    const mail = inquiryMail(groupName, siteUrl, {
+      realName: doc.get('realName'),
+      nickname: doc.get('nickname'),
+      email: doc.get('email'),
+      subject: doc.get('subject'),
+      body: doc.get('body'),
+    });
+    const recipients = admins.filter((a) => a.id !== doc.get('uid'));
+    // 送る相手がいない（送った人のほかに管理者がいない）ときは、送るものがないので通知済みにする
+    let delivered = recipients.length === 0;
+    for (const admin of recipients) {
+      const to = { name: admin.get('realName'), email: admin.get('email') };
+      if (await deliver({ kind: 'inquiry', uid: admin.id, inquiryId: doc.id }, to, mail)) delivered = true;
+    }
+    if (delivered) {
+      result.notifiedInquiries++;
+      if (!dryRun) await record(doc.ref, 'notifiedAt');
     }
   }
 

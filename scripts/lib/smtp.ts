@@ -37,7 +37,8 @@ export function createSender(settings: SmtpSettings, fromName: string): { send: 
     await transport.sendMail({
       from,
       to: { name: to.name, address: to.email },
-      replyTo: settings.replyTo,
+      // 問い合わせの通知は送った人に返信できるようにする。それ以外は既定の返信先
+      replyTo: mail.replyTo ? { name: mail.replyTo.name, address: mail.replyTo.email } : settings.replyTo,
       subject: mail.subject,
       text: mail.text,
     });

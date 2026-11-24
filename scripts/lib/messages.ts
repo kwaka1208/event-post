@@ -3,6 +3,8 @@ import { formatDateTime, formatEventDate } from './time';
 export interface Mail {
   subject: string;
   text: string;
+  /** 返信先。省略すると既定の返信先（環境変数 REPLY_TO）になる */
+  replyTo?: { name: string; email: string };
 }
 
 /** 申し込みの通知に載せる内容 */
@@ -53,6 +55,37 @@ export function adminMail(groupName: string, siteUrl: string, subject: string, b
   return {
     subject: `【${groupName}】${subject}`,
     text: [body.trimEnd(), '', '---', `このメールは ${groupName} の管理者が送りました。`, siteUrl, ''].join('\n'),
+  };
+}
+
+/** 問い合わせの通知に載せる内容 */
+export interface InquirySummary {
+  realName: string;
+  nickname: string;
+  email: string;
+  subject: string;
+  body: string;
+}
+
+/** 管理者宛て：メンバーからの問い合わせを知らせる。返信すると送った人に届くよう、返信先を送った人にする */
+export function inquiryMail(groupName: string, siteUrl: string, inquiry: InquirySummary): Mail {
+  return {
+    subject: `【${groupName}】問い合わせ：${inquiry.subject}`,
+    text: [
+      `${groupName} のメンバーから、管理者への問い合わせが届きました。`,
+      'このメールに返信すると、送った人に届きます。',
+      '',
+      `送った人：${inquiry.realName}（${inquiry.nickname}）`,
+      `件名：${inquiry.subject}`,
+      '',
+      inquiry.body.trimEnd(),
+      '',
+      '---',
+      '届いた問い合わせは、次のページでも見られます。',
+      pageUrl(siteUrl, '/admin/inquiries'),
+      '',
+    ].join('\n'),
+    replyTo: { name: inquiry.realName, email: inquiry.email },
   };
 }
 

@@ -95,11 +95,24 @@ service cloud.firestore {
 
       allow create: if isCreatingOwner(uid) || isApproving(uid);
 
+      allow update: if isChangingRole() || isEditingOwnProfile(uid);
+
       // 役割を変えられるのは特権管理者だけ。特権管理者自身の役割は変えられない
-      allow update: if isOwner()
-        && resource.data.role != 'owner'
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role'])
-        && request.resource.data.role in ['admin', 'member'];
+      function isChangingRole() {
+        return isOwner()
+          && resource.data.role != 'owner'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role'])
+          && request.resource.data.role in ['admin', 'member'];
+      }
+
+      // 本人が、マイページで自分の本名とニックネームを変える。役割やメールアドレスは変えられない
+      function isEditingOwnProfile(uid) {
+        return signedIn()
+          && request.auth.uid == uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['realName', 'nickname'])
+          && text(request.resource.data.realName, 1, 100)
+          && text(request.resource.data.nickname, 1, 100);
+      }
 
       // 参加者は管理者が、管理者は特権管理者が削除できる。特権管理者は削除できない
       allow delete: if resource.data.role != 'owner'
@@ -203,6 +216,34 @@ service cloud.firestore {
     }
 
     // ------------------------------------------------------------------
+    // inquiries/{id}：メンバーから管理者への問い合わせ。毎時の Actions（Admin SDK）が管理者全員に送り、
+    // 通知した日時（notifiedAt）を書く。送った人の名前とメールアドレスは、送った時点の members の写し
+    // ------------------------------------------------------------------
+    match /inquiries/{inquiryId} {
+      allow read: if isAdmin();
+
+      allow create: if isMember() && validInquiry(request.resource.data);
+
+      // 内容は変えられない
+      allow update: if false;
+
+      // 管理者が、対応を終えたものなどを削除する
+      allow delete: if isAdmin();
+
+      function validInquiry(d) {
+        let me = get(memberPath(request.auth.uid)).data;
+        return exactKeys(d, ['uid', 'realName', 'nickname', 'email', 'subject', 'body', 'createdAt'])
+          && d.uid == request.auth.uid
+          && d.realName == me.realName
+          && d.nickname == me.nickname
+          && d.email == me.email
+          && text(d.subject, 1, 200)
+          && text(d.body, 1, 5000)
+          && d.createdAt == request.time;
+      }
+    }
+
+    // ------------------------------------------------------------------
     // events/{eventId}：イベント。公開中はメンバーが、下書きは管理者だけが読める
     // ------------------------------------------------------------------
     match /events/{eventId} {
@@ -289,7 +330,14 @@ service cloud.firestore {
           && (get(eventPath(eventId)).data.capacity == null
             || getAfter(eventPath(eventId)).data.registrationCount <= get(eventPath(eventId)).data.capacity);
 
-        allow update: if false;
+        // 本人が名前を変えたとき、開始前のイベントの申込に残っている名前の写しをそろえる。
+        // 写せるのは自分の members の（同じ書き込みで変えた後の）名前だけ
+        allow update: if signedIn()
+          && request.auth.uid == uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['realName', 'nickname'])
+          && request.time < get(eventPath(eventId)).data.startAt
+          && request.resource.data.realName == getAfter(memberPath(uid)).data.realName
+          && request.resource.data.nickname == getAfter(memberPath(uid)).data.nickname;
 
         // 本人のキャンセル。開始日時まで。申込数の -1 と同時に書く
         allow delete: if signedIn()
