@@ -626,3 +626,13 @@ details[open] summary {
   border-radius: 8px;
   background: var(--bg);
 }
+
+/* 手順の説明（トップページのログイン前の案内など） */
+.steps {
+  margin: 0;
+  padding-left: 1.5em;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+}
