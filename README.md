@@ -285,6 +285,19 @@ GitHub Actions が Firestore を読み書きするための鍵を作ります。
 | `REPLY_TO` | メールの返信先のアドレス | 返信先を付けない（送信元に返信が届きます） |
 | `REMINDER_HOUR` | リマインドを送り始める、開催前日の時刻（日本時間、0〜23） | 18 |
 | `SMTP_HOST` / `SMTP_PORT` | Gmail 以外から送るときの SMTP サーバー | `smtp.gmail.com` / `465` |
+| `OGP_IMAGE_URL` | SNS でリンクを共有したときに出す画像の URL（[OGP](#sns-での見え方ogp)） | `custom/ogp.png` があればそれ、なければ画像なし |
+
+## SNS での見え方（OGP）
+
+サイトの URL を SNS やチャットに貼ったときに出る、タイトル・説明・画像を設定できます。
+
+- **タイトルと説明**：**設定** の画面のグループ名と説明を使います。説明は長いと 120 文字で縮めます
+- **画像**：次のどちらかで設定します。両方あるときは Variables の URL を使います
+  - リポジトリの `custom/` に `ogp.png`（または `ogp.jpg`）という名前で置きます。GitHub の画面で `custom` フォルダを開き、**Add file** → **Upload files** で追加できます。大きさは 1200×630 ピクセルがおすすめです
+  - どこかに置いた画像の URL を、Variables の `OGP_IMAGE_URL` に登録します（`https://` から始まる URL）
+- SNS は画面の JavaScript を動かさずに読むので、OGP は Deploy のときに書き込みます。グループ名や説明を変えたとき、`OGP_IMAGE_URL` を変えたときは、**Actions** → **Deploy** → **Run workflow** を実行してください（`custom/` の画像を push したときは、自動で Deploy が動きます）
+- SNS は一度読んだ内容をしばらく覚えています。すぐに変わらないときは、各 SNS の確認ツールで読み直させてください
+- `custom/` は、本体を更新しても変わりません
 
 ## 運用するときの注意
 

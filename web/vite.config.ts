@@ -1,7 +1,9 @@
-import { copyFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { copyFileSync, existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { defineConfig, type Plugin } from 'vite';
+import { ogpTags, resolveImageUrl } from '../scripts/lib/ogp';
 
 const outDir = fileURLToPath(new URL('./dist', import.meta.url));
 
@@ -24,10 +26,50 @@ function spaFallback(): Plugin {
   };
 }
 
+// OGP（SNS でリンクを共有したときの見え方）のタグを index.html に書き込む。SNS は JavaScript を動かさないため。
+// グループ名と説明は Deploy が Firestore から読んで web/ogp.json に書く（scripts/ogp.ts）。なければ EventPost の名前で出す。
+// 画像は環境変数 OGP_IMAGE_URL（Variables）があればそれを、なければリポジトリの custom/ogp.png（または .jpg）を使う。
+// サイトの URL は環境変数 SITE_URL（Deploy が GitHub Pages の設定から渡す）。なければ URL と画像のタグは出さない
+const OGP_IMAGE_CANDIDATES = ['ogp.png', 'ogp.jpg', 'ogp.jpeg'];
+
+function ogp(): Plugin {
+  const repoRoot = new URL('../', import.meta.url);
+  const jsonPath = fileURLToPath(new URL('./ogp.json', import.meta.url));
+  const imageName = OGP_IMAGE_CANDIDATES.find((name) => existsSync(new URL(`custom/${name}`, repoRoot)));
+  const image = imageName ? readFileSync(new URL(`custom/${imageName}`, repoRoot)) : undefined;
+  const siteUrl = process.env.SITE_URL?.trim() || undefined;
+  const imageUrlVar = process.env.OGP_IMAGE_URL;
+  // OGP_IMAGE_URL があるときは、リポジトリの画像を公開しない
+  const publishImage = !!image && !!imageName && !imageUrlVar?.trim();
+
+  return {
+    name: 'ogp',
+    apply: 'build',
+    transformIndexHtml(html) {
+      const group = existsSync(jsonPath)
+        ? (JSON.parse(readFileSync(jsonPath, 'utf8')) as { title?: string; description?: string })
+        : {};
+      const imageUrl = resolveImageUrl({
+        imageUrlVar,
+        siteUrl,
+        customFile:
+          image && imageName
+            ? { fileName: imageName, version: createHash('sha256').update(image).digest('hex').slice(0, 8) }
+            : undefined,
+      });
+      const tags = ogpTags({ title: group.title ?? '', description: group.description ?? '', siteUrl, imageUrl });
+      return html.replace('<title>EventPost</title>', tags);
+    },
+    generateBundle() {
+      if (publishImage) this.emitFile({ type: 'asset', fileName: imageName, source: image });
+    },
+  };
+}
+
 export default defineConfig({
   root: fileURLToPath(new URL('.', import.meta.url)),
   base: basePath(),
-  plugins: [react(), spaFallback()],
+  plugins: [react(), ogp(), spaFallback()],
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },

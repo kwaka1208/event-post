@@ -73,11 +73,18 @@ jobs:
         id: pages
         uses: actions/configure-pages@v6
 
-      # Firebase の Web 設定は公開してよい値。ビルドした JS に埋め込む（web/src/lib/firebase.ts）
+      # SNS でリンクを共有したときの見え方（OGP）に使う、グループ名と説明を読む（scripts/ogp.ts）
+      - name: OGP に使うグループ名と説明を読む
+        run: npm run ogp
+
+      # Firebase の Web 設定は公開してよい値。ビルドした JS に埋め込む（web/src/lib/firebase.ts）。
+      # OGP の画像は Variables の OGP_IMAGE_URL か、リポジトリの custom/ogp.png（web/vite.config.ts）
       - name: 画面をビルド
         run: npm run build
         env:
           BASE_PATH: ${{ steps.pages.outputs.base_path }}
+          SITE_URL: ${{ steps.pages.outputs.base_url }}
+          OGP_IMAGE_URL: ${{ vars.OGP_IMAGE_URL }}
           VITE_FIREBASE_API_KEY: ${{ vars.FIREBASE_API_KEY }}
           VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.FIREBASE_AUTH_DOMAIN }}
           VITE_FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}

@@ -1,5 +1,6 @@
 # テンプレートから作ったリポジトリで、元のリポジトリ（kwaka1208/event-post）の本体を取り込む PR を作る。
-# site/（旧版の設定）と、.eventpost-keep に書いたパスはそのまま残し、それ以外を元のリポジトリと同じにする。
+# custom/（グループごとのファイル。OGP の画像など）、site/（旧版の設定）と、.eventpost-keep に書いたパスはそのまま残し、
+# それ以外を元のリポジトリと同じにする。
 # 元のリポジトリそのものでは動かない。手順は UPDATING.md を見る。
 name: Update EventPost
 
@@ -62,8 +63,8 @@ jobs:
           # 前回取り込んだ版（このワークフローが .eventpost-version に書く）
           prev_sha=$(sed -n 's/^.*@\([0-9a-f]\{40\}\)$/\1/p' .eventpost-version 2>/dev/null | head -1 || true)
 
-          # 残すパス：site/、.eventpost-keep（とそこに書いたパス。# のあとと空行は無視する）、.eventpost-version
-          keep=(site .eventpost-keep .eventpost-version)
+          # 残すパス：custom/、site/、.eventpost-keep（とそこに書いたパス。# のあとと空行は無視する）、.eventpost-version
+          keep=(custom site .eventpost-keep .eventpost-version)
           if [ -f .eventpost-keep ]; then
             while IFS= read -r line; do
               line="${line%%#*}"
@@ -122,7 +123,7 @@ jobs:
           set -euo pipefail
           title="EventPost を更新する（${SHA:0:7}）"
           body=$(cat <<EOF
-          元のリポジトリ（$UPSTREAM）の本体を取り込みます。\`site/\` と \`.eventpost-keep\` に書いたパスは変えていません。
+          元のリポジトリ（$UPSTREAM）の本体を取り込みます。\`custom/\`、\`site/\` と \`.eventpost-keep\` に書いたパスは変えていません。
 
           - 取り込む版：https://github.com/$UPSTREAM/commit/$SHA
           - 何が変わったか：$CHANGES

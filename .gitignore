@@ -7,3 +7,5 @@ dist/
 firebase-debug.log
 firestore-debug.log
 ui-debug.log
+# Deploy が Firestore から作る OGP の値（scripts/ogp.ts）
+web/ogp.json
