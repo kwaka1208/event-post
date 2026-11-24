@@ -61,7 +61,7 @@ export function ContactPage() {
       <form className="card" onSubmit={(e) => void handleSubmit(e)}>
         <h1 className="card-title">管理者に問い合わせる</h1>
         <p>
-          グループの管理者全員にメールで届きます。管理者からの返事は、{me.email} に届きます。
+          グループの管理者にメールで届きます。管理者からの返事は、{me.email} に届きます。
         </p>
         <TextField label="件名" value={subject} onChange={setSubject} maxLength={LIMITS.inquirySubject} required />
         <TextField label="内容" value={body} onChange={setBody} maxLength={LIMITS.inquiryBody} required multiline rows={8} />

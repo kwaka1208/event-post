@@ -12,7 +12,7 @@ import { getEvent, type EventDoc } from '@/lib/events';
 import { db } from '@/lib/firebase';
 import { formatDateTime, formatEventDate } from '@/lib/format';
 import { LIMITS } from '@/lib/limits';
-import { isAdminRole, updateProfile, type Member, type Role } from '@/lib/membership';
+import { updateProfile, type Member, type Role } from '@/lib/membership';
 import { profileSyncEventIds, splitMyEvents, type MyEvent } from '@/lib/myPage';
 import { listMyRegistrations } from '@/lib/registrations';
 import { useSession } from '@/session/SessionProvider';
@@ -78,18 +78,6 @@ export function MyPage() {
       {hiddenCount > 0 && <p className="help">非公開になったイベントが {hiddenCount} 件あります。</p>}
 
       <Profile me={me} syncEventIds={syncEventIds} />
-
-      {!isAdminRole(me.role) && (
-        <section className="card" aria-labelledby="my-contact">
-          <h2 id="my-contact" className="card-title">
-            管理者への連絡
-          </h2>
-          <p>イベントやグループについて、管理者にメールで問い合わせられます。</p>
-          <Link to="/contact" className="button-secondary">
-            管理者に問い合わせる
-          </Link>
-        </section>
-      )}
     </main>
   );
 }
