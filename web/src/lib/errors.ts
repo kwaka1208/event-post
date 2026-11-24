@@ -18,3 +18,11 @@ export function loginErrorMessage(e: unknown): string {
 export function isPermissionDenied(e: unknown): boolean {
   return e instanceof FirebaseError && e.code === 'permission-denied';
 }
+
+/**
+ * Firestore のインデックスがまだ使えない（初めてのデプロイの直後に、構築が終わっていない）。
+ * 数分待てば読めるようになるので、通信や権限のエラーとは分けて案内する
+ */
+export function isIndexNotReady(e: unknown): boolean {
+  return e instanceof FirebaseError && e.code === 'failed-precondition';
+}
