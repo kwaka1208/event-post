@@ -36,6 +36,7 @@ Fireside は、地域の団体や CoderDojo のような小さなグループの
 - [本体を更新する](#本体を更新する)
 - [旧版（v1）から移る](#旧版v1から移る)
 - [開発者向け](#開発者向け)
+- [ライセンス](#ライセンス)
 
 ## しくみ
 
@@ -425,3 +426,7 @@ FIRESTORE_EMULATOR_HOST=127.0.0.1:8180 SITE_URL=https://example.github.io/events
 | `tests/` | テスト（`unit/` は単体、`rules/` はルール、`notify/` はスクリプト） |
 | `docs/` | 設計（`design.md`）と作業の記録（`progress.md`） |
 | `.github/workflows/` | CI、Deploy、Notify、Update Fireside、Clean up old data |
+
+## ライセンス
+
+[MIT License](LICENSE) で公開しています。© crossroads inc.
