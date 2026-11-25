@@ -252,9 +252,22 @@ a:hover {
 .list-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  /* どの行も同じ高さにして、すべてのカードの高さをそろえる */
+  grid-auto-rows: 1fr;
 }
 .list-grid .summary dd {
   overflow-wrap: anywhere;
+}
+/* 同じ行のカードの高さをそろえ、ボタンは下端にそろえる */
+.list-grid > li {
+  display: flex;
+}
+.list-grid > li > .card {
+  flex: 1;
+}
+.list-grid > li > .card > .actions:last-child,
+.list-grid > li > .card > .confirm:last-child {
+  margin-top: auto;
 }
 .actions {
   display: flex;
