@@ -1,8 +1,9 @@
-# テンプレートから作ったリポジトリで、元のリポジトリ（kwaka1208/event-post）の本体を取り込む PR を作る。
-# custom/（グループごとのファイル。OGP の画像など）、site/（旧版の設定）と、.eventpost-keep に書いたパスはそのまま残し、
+# テンプレートから作ったリポジトリで、元のリポジトリ（kwaka1208/fireside）の本体を取り込む PR を作る。
+# custom/（グループごとのファイル。OGP の画像など）、site/（旧版の設定）と、.fireside-keep に書いたパスはそのまま残し、
 # それ以外を元のリポジトリと同じにする。
+# 旧名（EventPost）の Secret・Variable・ファイル（EVENTPOST_UPDATE_TOKEN、.eventpost-keep など）も引き続き読む。
 # 元のリポジトリそのものでは動かない。手順は UPDATING.md を見る。
-name: Update EventPost
+name: Update Fireside
 
 on:
   workflow_dispatch:
@@ -17,16 +18,19 @@ on:
 permissions: {}
 
 concurrency:
-  group: eventpost-update
+  group: fireside-update
   cancel-in-progress: false
 
 env:
-  UPSTREAM: ${{ vars.EVENTPOST_UPSTREAM || 'kwaka1208/event-post' }}
-  UPDATE_BRANCH: eventpost-update
+  UPSTREAM: ${{ vars.FIRESIDE_UPSTREAM || vars.EVENTPOST_UPSTREAM || 'kwaka1208/fireside' }}
+  UPDATE_BRANCH: fireside-update
 
 jobs:
   update:
-    if: github.repository != (vars.EVENTPOST_UPSTREAM || 'kwaka1208/event-post')
+    # 元のリポジトリ自身（名前を変える前の kwaka1208/event-post も含む）では動かさない
+    if: >-
+      github.repository != (vars.FIRESIDE_UPSTREAM || vars.EVENTPOST_UPSTREAM || 'kwaka1208/fireside')
+      && github.repository != 'kwaka1208/event-post'
     runs-on: ubuntu-latest
     steps:
       # 既定のトークン（GITHUB_TOKEN）は .github/workflows/ の変更を push できず、作った PR で CI も動かないため、
@@ -34,21 +38,21 @@ jobs:
       - name: トークンが登録されているか確かめる
         id: check
         env:
-          TOKEN: ${{ secrets.EVENTPOST_UPDATE_TOKEN }}
+          TOKEN: ${{ secrets.FIRESIDE_UPDATE_TOKEN || secrets.EVENTPOST_UPDATE_TOKEN }}
         run: |
           if [ -n "$TOKEN" ]; then
             echo "ready=true" >> "$GITHUB_OUTPUT"
           else
             echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Secret の EVENTPOST_UPDATE_TOKEN が登録されていないため、更新を確かめませんでした。UPDATING.md の手順を確かめてください"
+            echo "::warning::Secret の FIRESIDE_UPDATE_TOKEN が登録されていないため、更新を確かめませんでした。UPDATING.md の手順を確かめてください"
             echo "### トークンが登録されていないため、更新を確かめませんでした" >> "$GITHUB_STEP_SUMMARY"
-            echo "Secret の \`EVENTPOST_UPDATE_TOKEN\` を登録してください。手順は UPDATING.md にあります。" >> "$GITHUB_STEP_SUMMARY"
+            echo "Secret の \`FIRESIDE_UPDATE_TOKEN\` を登録してください。手順は UPDATING.md にあります。" >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - uses: actions/checkout@v7
         if: steps.check.outputs.ready == 'true'
         with:
-          token: ${{ secrets.EVENTPOST_UPDATE_TOKEN }}
+          token: ${{ secrets.FIRESIDE_UPDATE_TOKEN || secrets.EVENTPOST_UPDATE_TOKEN }}
 
       - name: 元のリポジトリの本体で置き換える
         if: steps.check.outputs.ready == 'true'
@@ -60,18 +64,20 @@ jobs:
           git fetch --depth 1 "https://github.com/$UPSTREAM.git" "$REF"
           new_sha=$(git rev-parse FETCH_HEAD)
 
-          # 前回取り込んだ版（このワークフローが .eventpost-version に書く）
-          prev_sha=$(sed -n 's/^.*@\([0-9a-f]\{40\}\)$/\1/p' .eventpost-version 2>/dev/null | head -1 || true)
+          # 前回取り込んだ版（このワークフローが .fireside-version に書く。旧名の .eventpost-version も読む）
+          prev_sha=$(cat .fireside-version .eventpost-version 2>/dev/null | sed -n 's/^.*@\([0-9a-f]\{40\}\)$/\1/p' | head -1 || true)
 
-          # 残すパス：custom/、site/、.eventpost-keep（とそこに書いたパス。# のあとと空行は無視する）、.eventpost-version
-          keep=(custom site .eventpost-keep .eventpost-version)
-          if [ -f .eventpost-keep ]; then
+          # 残すパス：custom/、site/、.fireside-keep（とそこに書いたパス。# のあとと空行は無視する）、.fireside-version
+          # 旧名の .eventpost-keep（とそこに書いたパス）も残す
+          keep=(custom site .fireside-keep .fireside-version .eventpost-keep .eventpost-version)
+          for keep_file in .fireside-keep .eventpost-keep; do
+            [ -f "$keep_file" ] || continue
             while IFS= read -r line; do
               line="${line%%#*}"
               line="$(echo "$line" | xargs)"
               [ -n "$line" ] && keep+=("${line%/}")
-            done < .eventpost-keep
-          fi
+            done < "$keep_file"
+          done
           exclude=()
           for k in "${keep[@]}"; do exclude+=(":(top,exclude)$k"); done
 
@@ -89,8 +95,10 @@ jobs:
             exit 0
           fi
 
-          echo "$UPSTREAM@$new_sha" > .eventpost-version
-          git add .eventpost-version
+          echo "$UPSTREAM@$new_sha" > .fireside-version
+          git add .fireside-version
+          # 旧名の版の記録は、新しい名前に置き換える
+          git rm -q --ignore-unmatch .eventpost-version
           if [ -n "$prev_sha" ]; then
             changes="https://github.com/$UPSTREAM/compare/$prev_sha...$new_sha"
           else
@@ -100,7 +108,7 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git switch -q -C "$UPDATE_BRANCH"
-          git commit -q -m "Update EventPost to $UPSTREAM@$new_sha"
+          git commit -q -m "Update Fireside to $UPSTREAM@$new_sha"
           git push -q -f origin "$UPDATE_BRANCH"
 
           {
@@ -115,15 +123,15 @@ jobs:
       - name: PR を作る（すでにあれば、説明を書き直す）
         if: steps.update.outputs.changed == 'true'
         env:
-          GH_TOKEN: ${{ secrets.EVENTPOST_UPDATE_TOKEN }}
+          GH_TOKEN: ${{ secrets.FIRESIDE_UPDATE_TOKEN || secrets.EVENTPOST_UPDATE_TOKEN }}
           SHA: ${{ steps.update.outputs.sha }}
           CHANGES: ${{ steps.update.outputs.changes }}
           MIGRATING: ${{ steps.update.outputs.migrating }}
         run: |
           set -euo pipefail
-          title="EventPost を更新する（${SHA:0:7}）"
+          title="Fireside を更新する（${SHA:0:7}）"
           body=$(cat <<EOF
-          元のリポジトリ（$UPSTREAM）の本体を取り込みます。\`custom/\`、\`site/\` と \`.eventpost-keep\` に書いたパスは変えていません。
+          元のリポジトリ（$UPSTREAM）の本体を取り込みます。\`custom/\`、\`site/\` と \`.fireside-keep\` に書いたパスは変えていません。
 
           - 取り込む版：https://github.com/$UPSTREAM/commit/$SHA
           - 何が変わったか：$CHANGES

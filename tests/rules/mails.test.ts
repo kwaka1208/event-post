@@ -21,7 +21,7 @@ import { createMail, deleteMail, listMails, recipientOf, type MailInput } from '
 import { announcementMail, announcementRecipients, eventPageUrl } from '../../web/src/lib/announce';
 import { listMembers, type Member, type Role } from '../../web/src/lib/membership';
 
-const PROJECT_ID = 'demo-event-post';
+const PROJECT_ID = 'demo-fireside';
 
 let env: RulesTestEnvironment;
 

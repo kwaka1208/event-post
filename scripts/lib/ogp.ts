@@ -3,7 +3,7 @@
 // Firestore やファイルには触らず、渡された値だけから組み立てる。
 
 export interface OgpInfo {
-  /** グループ名。なければ EventPost */
+  /** グループ名。なければ Fireside */
   title: string;
   /** グループの説明 */
   description: string;
@@ -45,7 +45,7 @@ export function resolveImageUrl(opts: {
 
 /** <head> に入れる <title> と meta タグ */
 export function ogpTags(info: OgpInfo): string {
-  const title = info.title.trim() || 'EventPost';
+  const title = info.title.trim() || 'Fireside';
   const description = summarize(info.description);
   const meta = (attr: 'name' | 'property', key: string, value: string) =>
     `<meta ${attr}="${key}" content="${escapeHtml(value)}" />`;

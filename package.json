@@ -1,9 +1,9 @@
 {
-  "name": "event-post",
+  "name": "fireside",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "EventPost — クローズドなグループのためのイベント管理サイト（GitHub Pages + Firebase + Actions）",
+  "description": "Fireside — 小さなグループのための、承認制でゆっくりしたイベント管理サイト（GitHub Pages + Firebase + Actions）",
   "engines": {
     "node": ">=22.12.0"
   },
@@ -13,8 +13,8 @@
     "preview": "vite preview --config web/vite.config.ts",
     "check": "tsc -p web/tsconfig.json && tsc -p tsconfig.json",
     "test": "vitest run",
-    "emulators": "firebase emulators:start --config firebase/firebase.json --project demo-event-post --only auth,firestore",
-    "test:rules": "firebase emulators:exec --config firebase/firebase.json --project demo-event-post --only firestore \"vitest run --config vitest.rules.config.ts\"",
+    "emulators": "firebase emulators:start --config firebase/firebase.json --project demo-fireside --only auth,firestore",
+    "test:rules": "firebase emulators:exec --config firebase/firebase.json --project demo-fireside --only firestore \"vitest run --config vitest.rules.config.ts\"",
     "notify": "tsx scripts/notify.ts",
     "cleanup:old": "tsx scripts/cleanup-old.ts",
     "ogp": "tsx scripts/ogp.ts"

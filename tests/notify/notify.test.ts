@@ -15,7 +15,7 @@ import { EMULATOR_PROJECT_ID } from '../../web/src/consts';
 
 const app = initializeApp({ projectId: EMULATOR_PROJECT_ID }, 'notify-test');
 const db = getFirestore(app);
-const siteUrl = 'https://example.github.io/event-post';
+const siteUrl = 'https://example.github.io/fireside';
 
 async function clear() {
   await fetch(

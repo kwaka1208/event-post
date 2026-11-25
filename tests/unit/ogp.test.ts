@@ -58,9 +58,9 @@ describe('ogpTags', () => {
     expect(tags).toContain('<meta name="twitter:card" content="summary_large_image" />');
   });
 
-  it('グループがなければ EventPost の名前にし、説明・URL・画像がなければそのタグを出さない', () => {
+  it('グループがなければ Fireside の名前にし、説明・URL・画像がなければそのタグを出さない', () => {
     const tags = ogpTags({ title: '', description: '' });
-    expect(tags).toContain('<title>EventPost</title>');
+    expect(tags).toContain('<title>Fireside</title>');
     expect(tags).not.toContain('description');
     expect(tags).not.toContain('og:url');
     expect(tags).not.toContain('og:image');
