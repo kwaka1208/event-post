@@ -46,7 +46,7 @@ export function MembersPage() {
             <h2 id={`members-${role}`} className="list-heading">
               {title}（{list.length} 人）
             </h2>
-            <ul className="list">
+            <ul className="list list-grid">
               {list.map((member) => (
                 <li key={member.uid}>
                   <MemberItem me={me} member={member} />

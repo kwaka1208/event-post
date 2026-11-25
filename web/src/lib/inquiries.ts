@@ -55,8 +55,3 @@ export async function listInquiries(db: Firestore): Promise<InquiryDoc[]> {
 export async function deleteInquiry(db: Firestore, id: string): Promise<void> {
   await deleteDoc(doc(db, 'inquiries', id));
 }
-
-/** 返信用の mailto: リンク。件名に「Re: 」を付ける */
-export function replyHref(inquiry: Pick<InquiryDoc, 'email' | 'subject'>): string {
-  return `mailto:${inquiry.email}?subject=${encodeURIComponent(`Re: ${inquiry.subject}`)}`;
-}

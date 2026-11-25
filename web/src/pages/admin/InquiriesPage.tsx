@@ -1,11 +1,11 @@
 // メンバーからの問い合わせ（管理者）。メールで届いたものと同じ内容を、新しい順に表示する。
-// 返信はメールで行う（届いたメールに返信するか、「メールで返信する」から）
+// 返信は、管理者に届いた通知メールに返信して行う（返信先が送った人になっている）
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Loading, LoadError } from '@/components/Status';
 import { db } from '@/lib/firebase';
 import { formatDateTime } from '@/lib/format';
-import { deleteInquiry, listInquiries, replyHref, type InquiryDoc } from '@/lib/inquiries';
+import { deleteInquiry, listInquiries, type InquiryDoc } from '@/lib/inquiries';
 import { inquiriesKey } from './adminKeys';
 
 export function InquiriesPage() {
@@ -17,7 +17,7 @@ export function InquiriesPage() {
   return (
     <main className="main">
       <h1>問い合わせ</h1>
-      <p className="help">メンバーが「管理者に問い合わせる」から送った内容です。管理者全員にメールでも届きます。</p>
+      <p className="help">メンバーが「管理者に問い合わせる」から送った内容です。管理者にメールでも届きます。返信は、そのメールに返信してください（送った人に届きます）。</p>
       {inquiries.data.length === 0 ? (
         <p>問い合わせはまだありません。</p>
       ) : (
@@ -86,9 +86,6 @@ function InquiryItem({ inquiry }: { inquiry: InquiryDoc }) {
         </div>
       ) : (
         <div className="actions">
-          <a className="button-secondary" href={replyHref(inquiry)}>
-            メールで返信する
-          </a>
           <button type="button" className="button-text" onClick={() => setConfirming(true)}>
             削除する
           </button>
