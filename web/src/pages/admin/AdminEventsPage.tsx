@@ -1,6 +1,6 @@
 // イベントの一覧（管理者）。下書きも含めて、開始日時の新しい順に並べる
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router';
+import { Link, useLocation } from 'react-router';
 import { Loading, LoadError } from '@/components/Status';
 import { listAllEvents, type EventDoc } from '@/lib/events';
 import { db } from '@/lib/firebase';
@@ -9,6 +9,8 @@ import { adminEventsKey } from './adminEventsKey';
 
 export function AdminEventsPage() {
   const events = useQuery({ queryKey: adminEventsKey, queryFn: () => listAllEvents(db) });
+  // イベントの保存のあと、お知らせのメールを作れなかったとき（EventEditPage）
+  const announceFailed = (useLocation().state as { announceFailed?: boolean } | null)?.announceFailed === true;
 
   if (events.isPending) return <Loading />;
   if (events.isError) return <LoadError />;
@@ -16,6 +18,11 @@ export function AdminEventsPage() {
   return (
     <main className="main">
       <h1>イベント管理</h1>
+      {announceFailed && (
+        <p className="error" role="alert">
+          イベントは保存しましたが、メンバーへのお知らせのメールを作れませんでした。「メール」の画面から、メンバー全員に送ってください。
+        </p>
+      )}
       <Link to="/admin/events/new" className="button-primary">
         新しいイベントを作る
       </Link>
