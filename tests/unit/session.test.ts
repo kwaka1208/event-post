@@ -5,7 +5,7 @@ import type { Application, Member } from '../../web/src/lib/membership';
 import { homePathFor, resolveSession } from '../../web/src/lib/session';
 
 const group: GroupProfile = {
-  name: 'CoderDojo 奈良',
+  name: 'あすか雑楽部',
   description: '',
   ownerName: '奈良 太郎',
   ownerUid: 'owner',
