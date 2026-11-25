@@ -662,3 +662,72 @@ details[open] summary {
   gap: 6px;
   font-size: 14px;
 }
+
+/* 情報を横に並べた、詰めたカードの一覧（メールの一覧など） */
+.list-compact {
+  gap: 10px;
+}
+.card-compact {
+  gap: 8px;
+  padding: 14px 16px;
+}
+.compact-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.compact-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 16px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.meta-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 16px;
+  margin: 0;
+  font-size: 13px;
+}
+.meta-inline > div {
+  display: flex;
+  gap: 6px;
+}
+.meta-inline dt {
+  color: var(--text-sub);
+}
+.meta-inline dd {
+  margin: 0;
+}
+.compact-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 4px 8px;
+  /* 押せる高さは保ったまま、上下の見た目の余白を詰める */
+  margin: -8px 0 -12px;
+}
+.compact-foot details {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+}
+/* 開いたときは、下の余白を詰めた分を戻す */
+.compact-foot details[open] {
+  padding-bottom: 12px;
+}
+.compact-foot summary {
+  /* 押しやすい高さ（44px）にする。display は変えない（開閉の三角が消えるため） */
+  padding: 12px 0;
+  line-height: 20px;
+  cursor: pointer;
+  color: var(--accent);
+}
+.compact-foot .button-text {
+  font-size: 13px;
+}
