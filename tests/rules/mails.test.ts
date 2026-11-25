@@ -18,7 +18,8 @@ import {
   type Firestore,
 } from 'firebase/firestore';
 import { createMail, deleteMail, listMails, recipientOf, type MailInput } from '../../web/src/lib/mails';
-import type { Member, Role } from '../../web/src/lib/membership';
+import { announcementMail, announcementRecipients, eventPageUrl } from '../../web/src/lib/announce';
+import { listMembers, type Member, type Role } from '../../web/src/lib/membership';
 
 const PROJECT_ID = 'demo-event-post';
 
@@ -126,6 +127,30 @@ describe('作成', () => {
 
   it('送信状況の項目を足して作成できない', async () => {
     await assertFails(rawCreate(userDb('admin'), { deliveredUids: ['alice'] }));
+  });
+});
+
+describe('イベントのお知らせ', () => {
+  it('管理者がメンバー全員に作るお知らせのメールは、ルールを通る', async () => {
+    const db = userDb('admin');
+    const members = await listMembers(db);
+    const event = {
+      title: 'あ'.repeat(100),
+      body: '',
+      startAt: new Date(2026, 11, 5, 10, 0),
+      endAt: new Date(2026, 11, 5, 12, 0),
+      deadlineAt: null,
+      venue: 'い'.repeat(100),
+      address: 'う'.repeat(200),
+      capacity: 10000,
+      published: true,
+    };
+    const mail = announcementMail(event, eventPageUrl('https://example.github.io', '/asugaku/', 'abc'));
+    await assertSucceeds(
+      createMail(db, memberOf('admin', 'admin'), { ...mail, recipients: announcementRecipients(members.map(recipientOf)) }),
+    );
+    const [saved] = await listMails(db);
+    expect(saved.recipients.map((r) => r.uid).sort()).toEqual(['admin', 'alice', 'owner']);
   });
 });
 

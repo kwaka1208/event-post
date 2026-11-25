@@ -1,15 +1,21 @@
-// イベントの作成（/admin/events/new）と編集（/admin/events/:id）。編集では、申込がなければ削除もできる
+// イベントの作成（/admin/events/new）と編集（/admin/events/:id）。編集では、申込がなければ削除もできる。
+// 公開して保存するときに選べば、メンバー全員へのお知らせのメールも作る（lib/announce.ts）
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useId, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
+import { useAdminMember } from '@/components/RequireAdmin';
 import { Loading, LoadError } from '@/components/Status';
 import { TextField } from '@/components/TextField';
+import { announcementMail, announcementRecipients, eventPageUrl } from '@/lib/announce';
 import { isPermissionDenied } from '@/lib/errors';
 import { emptyEventForm, eventToForm, formToInput, type EventFormValues } from '@/lib/eventForm';
 import { createEvent, deleteEvent, getEvent, updateEvent, type EventDoc, type EventInput } from '@/lib/events';
 import { db } from '@/lib/firebase';
 import { LIMITS } from '@/lib/limits';
+import { createMail, recipientOf } from '@/lib/mails';
+import { listMembers } from '@/lib/membership';
 import { adminEventsKey } from './adminEventsKey';
+import { mailsKey } from './adminKeys';
 import { Registrants } from './Registrants';
 
 export function EventNewPage() {
@@ -42,8 +48,11 @@ export function EventEditPage() {
 function EventForm({ event }: { event: EventDoc | null }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const me = useAdminMember();
   const [values, setValues] = useState<EventFormValues>(event ? eventToForm(event) : emptyEventForm);
   const [errors, setErrors] = useState<string[]>([]);
+  // 保存したら、メンバー全員にお知らせのメールを作る（公開するときだけ選べる。うっかり送らないよう、最初は外しておく）
+  const [announce, setAnnounce] = useState(false);
   const registrationCount = event?.registrationCount ?? 0;
 
   const set = <K extends keyof EventFormValues>(key: K) => (value: EventFormValues[K]) =>
@@ -51,12 +60,26 @@ function EventForm({ event }: { event: EventDoc | null }) {
 
   const save = useMutation({
     mutationFn: async (input: EventInput) => {
-      if (event) await updateEvent(db, event.id, input);
-      else await createEvent(db, input);
+      let id = event?.id;
+      if (id) await updateEvent(db, id, input);
+      else id = await createEvent(db, input);
+      if (announce && input.published) {
+        try {
+          const members = await listMembers(db);
+          const mail = announcementMail(input, eventPageUrl(location.origin, import.meta.env.BASE_URL, id));
+          await createMail(db, me, { ...mail, recipients: announcementRecipients(members.map(recipientOf)) });
+        } catch {
+          return { announceFailed: true };
+        }
+      }
+      return { announceFailed: false };
     },
-    onSuccess: async () => {
+    // お知らせのメールだけ作れなかったときも、イベントは保存できているので一覧に戻り、そこで知らせる
+    // （この画面に残ると、新しいイベントをもう一度保存して二重に作ってしまうため）
+    onSuccess: async (result) => {
       await queryClient.invalidateQueries({ queryKey: adminEventsKey });
-      navigate('/admin/events');
+      await queryClient.invalidateQueries({ queryKey: mailsKey });
+      navigate('/admin/events', { state: result.announceFailed ? { announceFailed: true } : null });
     },
   });
 
@@ -117,6 +140,17 @@ function EventForm({ event }: { event: EventDoc | null }) {
         <label className="checkbox">
           <input type="checkbox" checked={values.published} onChange={(e) => set('published')(e.target.checked)} />
           <span>公開する（チェックを外すと下書きになり、管理者だけが見られます）</span>
+        </label>
+        <label className="checkbox">
+          <input
+            type="checkbox"
+            checked={announce && values.published}
+            disabled={!values.published}
+            onChange={(e) => setAnnounce(e.target.checked)}
+          />
+          <span>
+            保存したら、メンバー全員にこのイベントをメールで知らせる（日時・会場・ページの URL を、次の毎時の送信で送ります。送る前なら「メール」の画面から取りやめられます）
+          </span>
         </label>
 
         {errors.length > 0 && (
