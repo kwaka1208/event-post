@@ -51,7 +51,7 @@ afterAll(async () => {
 // ヘルパー
 // ---------------------------------------------------------------------------
 
-const GROUP: GroupInput = { name: 'あすか雑楽部', description: 'いろいろなことを楽しむ小さな集まりです。', ownerName: '奈良 太郎' };
+const GROUP: GroupInput = { name: 'あすか雑楽部', description: 'あすか雑楽部は、AIとか、セキュリティといった生活に身近なIT系のテーマを中心に、時にはチェスやカードゲームのようなことも取り入れて、雑多なことを楽しく学ぶ会です。', ownerName: '奈良 太郎' };
 const OWNER: PersonInput = { realName: '奈良 太郎', nickname: 'たろう' };
 const APPLICATION: ApplicationInput = { realName: '山田 花子', nickname: 'はなこ', reason: '子どもと参加したいです。' };
 
