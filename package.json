@@ -2,6 +2,7 @@
   "name": "fireside",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "description": "Fireside — 小さなグループのための、承認制でゆっくりしたイベント管理サイト（GitHub Pages + Firebase + Actions）",
   "engines": {
