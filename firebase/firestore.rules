@@ -1,6 +1,6 @@
 rules_version = '2';
 
-// EventPost の Firestore セキュリティルール
+// Fireside の Firestore セキュリティルール
 // Cloud Functions を使わないため、権限の確認と入力の検証はすべてここで行う。
 // Actions（Admin SDK）はルールを迂回するので、メール送信の記録などはここでは考えない。
 // 文字数の上限は web/src/lib/limits.ts と合わせる。

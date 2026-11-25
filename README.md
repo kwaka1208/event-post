@@ -1,6 +1,13 @@
-# EventPost
+# Fireside
 
-小さなグループ（地域団体、CoderDojo など）のための、クローズドなイベント管理サイトのテンプレートです。サーバーを用意しなくても、GitHub と Firebase の無料枠だけで次のことができます。
+*A slow, welcoming place for small gatherings.*
+
+Fireside は、地域の団体や CoderDojo のような小さなグループのための、イベント管理サイトのテンプレートです。火を囲む輪のように、顔の見える人たちが集まる場所をつくります。
+
+- **迎え入れてから仲間になる**：参加したい人がサイトから申し込み、管理者が承認すると、メンバーとしてイベントを見て申し込めるようになります。誰でも入れる場所ではありませんが、新しい人を迎える入口はいつも開いています
+- **急がない**：メールは 1 時間に 1 回まとめて送るので、届くまで最大 1 時間ほどかかります。そのかわり、メール配信のサーバーや有料のサービスは要りません。イベントの案内や申込の受付には、この速さで十分です
+
+サーバーを用意しなくても、GitHub と Firebase の無料枠だけで次のことができます。
 
 - 参加の申し込みを受け付け、管理者が承認した人だけをメンバーにする
 - メンバーだけが見られるイベントのページを、画面から作って公開する（定員・締切・下書きも設定できます）
@@ -88,7 +95,7 @@ GitHub と Firebase の画面で設定できれば、セットアップできま
 
 ### 1. テンプレートからリポジトリを作る
 
-1. [kwaka1208/event-post](https://github.com/kwaka1208/event-post) を開き、右上の **Use this template** → **Create a new repository** を選びます。
+1. [kwaka1208/fireside](https://github.com/kwaka1208/fireside) を開き、右上の **Use this template** → **Create a new repository** を選びます。
 2. リポジトリ名（例：`events`）を入れ、**Public** を選んで作成します。
 
 > [!NOTE]
@@ -123,7 +130,7 @@ GitHub と Firebase の画面で設定できれば、セットアップできま
 GitHub Actions が Firestore を読み書きするための鍵を作ります。
 
 1. [Google Cloud コンソールの IAM → サービスアカウント](https://console.cloud.google.com/iam-admin/serviceaccounts)を開き、上部で手順 2 のプロジェクトを選びます。
-2. **サービスアカウントを作成** を押し、名前（例：`event-post-actions`）を入れます。
+2. **サービスアカウントを作成** を押し、名前（例：`fireside-actions`）を入れます。
 3. 次の 4 つのロールを付けて作成します。
 
 | ロール | 用途 |
@@ -146,7 +153,7 @@ GitHub Actions が Firestore を読み書きするための鍵を作ります。
 メールは Gmail から送ります。送信に使う Google アカウントで、次の 2 つを行います。
 
 1. [2 段階認証プロセス](https://myaccount.google.com/signinoptions/twosv)を有効にします。
-2. [アプリパスワード](https://myaccount.google.com/apppasswords)を開き、名前（例：`EventPost`）を入れて作成します。表示された 16 文字のパスワードを控えます。
+2. [アプリパスワード](https://myaccount.google.com/apppasswords)を開き、名前（例：`Fireside`）を入れて作成します。表示された 16 文字のパスワードを控えます。
 
 ### 6. GitHub に Secrets と Variables を登録する
 
@@ -294,7 +301,7 @@ GitHub Actions が Firestore を読み書きするための鍵を作ります。
 サイトの URL を SNS やチャットに貼ったときに出る、タイトル・説明・画像を設定できます。
 
 - **タイトルと説明**：**設定** の画面のグループ名と説明を使います。説明は長いと 120 文字で縮めます
-- **画像**：何もしなければ、EventPost の既定の画像（カレンダーのアイコンと「イベントの案内と申し込み」）を出します。グループの画像に変えるときは、次のどちらかで設定します。両方あるときは Variables の URL を使います
+- **画像**：何もしなければ、Fireside の既定の画像（カレンダーのアイコンと「イベントの案内と申し込み」）を出します。グループの画像に変えるときは、次のどちらかで設定します。両方あるときは Variables の URL を使います
   - リポジトリの `custom/` に `ogp.png`（または `ogp.jpg`）という名前で置きます。GitHub の画面で `custom` フォルダを開き、**Add file** → **Upload files** で追加できます。大きさは 1200×630 ピクセルがおすすめです
   - どこかに置いた画像の URL を、Variables の `OGP_IMAGE_URL` に登録します（`https://` から始まる URL）
 - SNS は画面の JavaScript を動かさずに読むので、OGP は Deploy のときに書き込みます。グループ名や説明を変えたとき、`OGP_IMAGE_URL` を変えたときは、**Actions** → **Deploy** → **Run workflow** を実行してください（`custom/` の画像を push したときは、自動で Deploy が動きます）
@@ -303,7 +310,7 @@ GitHub Actions が Firestore を読み書きするための鍵を作ります。
 
 ## ファビコン
 
-ブラウザのタブや、スマートフォンのホーム画面に追加したときに出るアイコンです。何もしなければ、EventPost の既定のアイコン（カレンダーのアイコン）を出します。
+ブラウザのタブや、スマートフォンのホーム画面に追加したときに出るアイコンです。何もしなければ、Fireside の既定のアイコン（カレンダーのアイコン）を出します。
 
 グループのアイコンに変えるときは、リポジトリの `custom/` に次の名前で置きます。push すると Deploy が動いて反映されます。
 
@@ -368,7 +375,7 @@ GitHub の画面だけで済ませたい場合は、README などに 1 行足し
 
 ## 本体を更新する
 
-元のリポジトリの新しい版を取り込みます。Actions の「Update EventPost」が、最新版を取り込む PR を毎週作ります（最初にトークンの登録が必要です）。準備と手順は [UPDATING.md](UPDATING.md) を見てください。
+元のリポジトリの新しい版を取り込みます。Actions の「Update Fireside」が、最新版を取り込む PR を毎週作ります（最初にトークンの登録が必要です）。準備と手順は [UPDATING.md](UPDATING.md) を見てください。
 
 ## 旧版（v1）から移る
 
@@ -417,4 +424,4 @@ FIRESTORE_EMULATOR_HOST=127.0.0.1:8180 SITE_URL=https://example.github.io/events
 | `scripts/` | Actions から動かすスクリプト（メールの送信、旧版のデータの削除） |
 | `tests/` | テスト（`unit/` は単体、`rules/` はルール、`notify/` はスクリプト） |
 | `docs/` | 設計（`design.md`）と作業の記録（`progress.md`） |
-| `.github/workflows/` | CI、Deploy、Notify、Update EventPost、Clean up old data |
+| `.github/workflows/` | CI、Deploy、Notify、Update Fireside、Clean up old data |

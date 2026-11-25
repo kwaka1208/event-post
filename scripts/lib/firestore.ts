@@ -1,6 +1,6 @@
 // Actions のスクリプトから Firestore に接続する。
 // 認証は Application Default Credentials（Actions では google-github-actions/auth が設定する）。
-// FIRESTORE_EMULATOR_HOST があればエミュレーター（demo-event-post）に、なければ GOOGLE_CLOUD_PROJECT に接続する。
+// FIRESTORE_EMULATOR_HOST があればエミュレーター（demo-fireside）に、なければ GOOGLE_CLOUD_PROJECT に接続する。
 import { initializeApp } from 'firebase-admin/app';
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 import { EMULATOR_PROJECT_ID } from '../../web/src/consts';

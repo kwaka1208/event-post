@@ -1,20 +1,23 @@
-# EventPost の本体を更新する
+# Fireside の本体を更新する
 
-テンプレートから作ったリポジトリには、元のリポジトリ（[kwaka1208/event-post](https://github.com/kwaka1208/event-post)）の更新は自動では入りません。不具合の修正や新しい機能を取り込むには、次のどちらかの方法を使います。
+テンプレートから作ったリポジトリには、元のリポジトリ（[kwaka1208/fireside](https://github.com/kwaka1208/fireside)）の更新は自動では入りません。不具合の修正や新しい機能を取り込むには、次のどちらかの方法を使います。
 
-- **自動で PR を作る（おすすめ）**：Actions の「Update EventPost」が、元のリポジトリの最新版を取り込む PR を作ります。中身を確かめてからマージします
+- **自動で PR を作る（おすすめ）**：Actions の「Update Fireside」が、元のリポジトリの最新版を取り込む PR を作ります。中身を確かめてからマージします
 - **手作業で置き換える**：git のコマンドで置き換えます。自動の方法が使えないときに使います
+
+> [!NOTE]
+> 2026 年 11 月に、名前を EventPost から Fireside に変えました。EventPost のときに作ったリポジトリも、そのまま更新を取り込めます。Secret の `EVENTPOST_UPDATE_TOKEN`、Variable の `EVENTPOST_UPSTREAM`、`.eventpost-keep` は、旧名のままでも読みます。`.eventpost-version` は、次の更新で `.fireside-version` に置き換わります。
 
 ## 何が差し替わるか
 
 | 差し替えない（グループのもの） | 差し替える（本体） |
 |---|---|
-| `custom/`（グループごとのファイル。OGP の画像など）<br>`.eventpost-keep` と、そこに書いたパス<br>`.eventpost-version`（取り込んだ版の記録）<br>`site/`（旧版の設定。新版では使いません） | それ以外のすべて。元のリポジトリと同じ内容になり、元で消えたファイルは消えます |
+| `custom/`（グループごとのファイル。OGP の画像など）<br>`.fireside-keep` と、そこに書いたパス<br>`.fireside-version`（取り込んだ版の記録）<br>`site/`（旧版の設定。新版では使いません） | それ以外のすべて。元のリポジトリと同じ内容になり、元で消えたファイルは消えます |
 
 - グループの設定（Firebase の値、返信先など）は、リポジトリの Variables と Secrets にあるので、更新しても変わりません。グループやイベントのデータは Firestore にあります
 - `site/` は、旧版から移ったリポジトリで設定を控えておけるように残します。新版では使わないので、移ったあとは消してかまいません（[旧版（v1）から移る](#旧版v1から移る)）
 - 本体のファイルを自分で書き換えていた場合、その変更は消えます。残したい変更は、更新の前に控えておいてください
-- グループで足したファイルがある場合（例：独自ドメイン用の `CNAME`）は、リポジトリの一番上に `.eventpost-keep` を作り、残したいパスを 1 行に 1 つずつ書いてください。`#` から後ろはコメントです
+- グループで足したファイルがある場合（例：独自ドメイン用の `CNAME`）は、リポジトリの一番上に `.fireside-keep` を作り、残したいパスを 1 行に 1 つずつ書いてください。`#` から後ろはコメントです
 
   ```
   # グループで足したファイル
@@ -26,7 +29,7 @@
 
 ## 自動で PR を作る
 
-Actions の「Update EventPost」（`.github/workflows/update.yml`）が、毎週月曜の朝と、手動で実行したときに、元のリポジトリの最新版と比べます。違いがあれば、ブランチ `eventpost-update` に置き換えたコミットを作り、PR を開きます。PR がすでにあれば、最新版で上書きします。元のリポジトリと同じ内容なら、何もしません。
+Actions の「Update Fireside」（`.github/workflows/update.yml`）が、毎週月曜の朝と、手動で実行したときに、元のリポジトリの最新版と比べます。違いがあれば、ブランチ `fireside-update` に置き換えたコミットを作り、PR を開きます。PR がすでにあれば、最新版で上書きします。元のリポジトリと同じ内容なら、何もしません。
 
 ### 準備（最初の 1 回だけ）
 
@@ -35,7 +38,7 @@ Actions の「Update EventPost」（`.github/workflows/update.yml`）が、毎�
 リポジトリに `.github/workflows/update.yml` があるか確かめます。2026 年 11 月より前にテンプレートから作ったリポジトリにはないので、次のどちらかで入れてください。
 
 - 下の「手作業で置き換える」で、1 回だけ本体を更新する（ワークフローも入ります）
-- GitHub の画面で **Add file** → **Create new file** を選び、名前に `.github/workflows/update.yml` と入力して、元のリポジトリの [update.yml](https://github.com/kwaka1208/event-post/blob/main/.github/workflows/update.yml) の中身を貼り付けてコミットする
+- GitHub の画面で **Add file** → **Create new file** を選び、名前に `.github/workflows/update.yml` と入力して、元のリポジトリの [update.yml](https://github.com/kwaka1208/fireside/blob/main/.github/workflows/update.yml) の中身を貼り付けてコミットする
 
 #### 2. トークンを作る
 
@@ -43,7 +46,7 @@ Actions に最初から用意されているトークンでは、`.github/workfl
 
 1. GitHub の右上のアイコン → **Settings** → **Developer settings** → **Personal access tokens** → **Fine-grained tokens** → **Generate new token** を選びます。
 2. 次のように設定して、**Generate token** を押します。
-   - **Token name**：例「EventPost の更新（リポジトリ名）」
+   - **Token name**：例「Fireside の更新（リポジトリ名）」
    - **Expiration**：有効期限。期限が切れたら作り直します（下の「トークンの期限が切れたとき」）
    - **Resource owner**：リポジトリの持ち主（個人または組織）
    - **Repository access**：**Only select repositories** で、このリポジトリだけを選ぶ
@@ -55,11 +58,11 @@ Actions に最初から用意されているトークンでは、`.github/workfl
 
 #### 3. トークンを Secret に登録する
 
-リポジトリの **Settings** → **Secrets and variables** → **Actions** → **New repository secret** で、名前を `EVENTPOST_UPDATE_TOKEN`、値をコピーしたトークンにして登録します。
+リポジトリの **Settings** → **Secrets and variables** → **Actions** → **New repository secret** で、名前を `FIRESIDE_UPDATE_TOKEN`、値をコピーしたトークンにして登録します。
 
 #### 4. 試しに動かす
 
-**Actions** → **Update EventPost** → **Run workflow** を押します。元のリポジトリと違いがあれば、PR が開きます。
+**Actions** → **Update Fireside** → **Run workflow** を押します。元のリポジトリと違いがあれば、PR が開きます。
 
 ### 更新が届いたら
 
@@ -72,7 +75,7 @@ Actions に最初から用意されているトークンでは、`.github/workfl
 
 ### トークンの期限が切れたとき
 
-「Update EventPost」が権限のエラーで失敗するようになります。手順 2 でトークンを作り直し、手順 3 の Secret を新しい値で更新してください（Secret の画面で `EVENTPOST_UPDATE_TOKEN` の鉛筆のアイコンを押します）。
+「Update Fireside」が権限のエラーで失敗するようになります。手順 2 でトークンを作り直し、手順 3 の Secret を新しい値で更新してください（Secret の画面で `FIRESIDE_UPDATE_TOKEN` の鉛筆のアイコンを押します）。
 
 ## 手作業で置き換える
 
@@ -85,17 +88,18 @@ Actions に最初から用意されているトークンでは、`.github/workfl
 
 ```bash
 # 1. 元のリポジトリの最新版を取ってくる
-git fetch https://github.com/kwaka1208/event-post.git main
+git fetch https://github.com/kwaka1208/fireside.git main
 ```
 
 ```bash
 # 2. 本体を消してから、最新版で置き換える（元で消えたファイルも消すため、先に消す）
-#    .eventpost-keep を作っている場合は、そこに書いたパスも :(top,exclude)パス の形で足す
-KEEP=(":(top,exclude)custom" ":(top,exclude)site" ":(top,exclude).eventpost-keep" ":(top,exclude).eventpost-version")
+#    .fireside-keep を作っている場合は、そこに書いたパスも :(top,exclude)パス の形で足す
+#    旧名の .eventpost-keep を使っている場合は、そこに書いたパスも同じように足す
+KEEP=(":(top,exclude)custom" ":(top,exclude)site" ":(top,exclude).fireside-keep" ":(top,exclude).fireside-version" ":(top,exclude).eventpost-keep")
 git rm -r -q --ignore-unmatch -- . "${KEEP[@]}"
 git checkout FETCH_HEAD -- . "${KEEP[@]}"
-echo "kwaka1208/event-post@$(git rev-parse FETCH_HEAD)" > .eventpost-version
-git add .eventpost-version
+echo "kwaka1208/fireside@$(git rev-parse FETCH_HEAD)" > .fireside-version
+git add .fireside-version
 ```
 
 ```bash
@@ -105,7 +109,7 @@ git status
 
 ```bash
 # 4. コミットして push する
-git commit -m "Update EventPost"
+git commit -m "Update Fireside"
 git push
 ```
 
@@ -172,7 +176,7 @@ Codespaces を使い終わったら、リポジトリのページの **Code** �
 
 ### 旧版に留まりたいとき
 
-新版に移らない場合は、更新の PR をマージせずに閉じ、**Actions** → **Update EventPost** → **Disable workflow** で、更新の取り込みを止めてください。旧版の最後の状態は、元のリポジトリのタグ `v1` にあります。
+新版に移らない場合は、更新の PR をマージせずに閉じ、**Actions** → **Update Fireside** → **Disable workflow** で、更新の取り込みを止めてください。旧版の最後の状態は、元のリポジトリのタグ `v1` にあります。
 
 ## 元に戻したいとき
 

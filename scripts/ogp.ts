@@ -3,7 +3,7 @@
 //
 //   npm run ogp
 //
-// 接続先は lib/firestore.ts を参照。グループがまだなければ、空の値を書く（ビルドは EventPost の名前で続ける）。
+// 接続先は lib/firestore.ts を参照。グループがまだなければ、空の値を書く（ビルドは Fireside の名前で続ける）。
 import { writeFileSync } from 'node:fs';
 import { connectFirestore } from './lib/firestore';
 
@@ -15,7 +15,7 @@ async function main() {
   console.log(
     group.exists
       ? `Firestore（${projectId}）からグループ名と説明を読み、OGP に使います。`
-      : `Firestore（${projectId}）にグループがまだないため、OGP は EventPost の名前で出します。`,
+      : `Firestore（${projectId}）にグループがまだないため、OGP は Fireside の名前で出します。`,
   );
 }
 

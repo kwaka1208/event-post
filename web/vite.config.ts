@@ -8,7 +8,7 @@ import { ogpTags, resolveImageUrl } from '../scripts/lib/ogp';
 const outDir = fileURLToPath(new URL('./dist', import.meta.url));
 
 // GitHub Pages で公開する。独自ドメインを使わないときは https://<ユーザー>.github.io/<リポジトリ>/ になるので、
-// 環境変数 BASE_PATH（例：/event-post）でサブパスを渡す。省略すると / で配信する。
+// 環境変数 BASE_PATH（例：/fireside）でサブパスを渡す。省略すると / で配信する。
 function basePath(): string {
   const raw = process.env.BASE_PATH ?? '/';
   return `/${raw.replace(/^\/+|\/+$/g, '')}/`.replace(/^\/\/$/, '/');
@@ -27,7 +27,7 @@ function spaFallback(): Plugin {
 }
 
 // OGP（SNS でリンクを共有したときの見え方）のタグを index.html に書き込む。SNS は JavaScript を動かさないため。
-// グループ名と説明は Deploy が Firestore から読んで web/ogp.json に書く（scripts/ogp.ts）。なければ EventPost の名前で出す。
+// グループ名と説明は Deploy が Firestore から読んで web/ogp.json に書く（scripts/ogp.ts）。なければ Fireside の名前で出す。
 // 画像は環境変数 OGP_IMAGE_URL（Variables）があればそれを、なければリポジトリの custom/ogp.png（または .jpg）を、
 // それもなければ既定の画像（web/ogp-default.png）を使う。
 // サイトの URL は環境変数 SITE_URL（Deploy が GitHub Pages の設定から渡す）。なければ URL と画像のタグは出さない
@@ -57,7 +57,7 @@ function ogp(): Plugin {
         customFile: { fileName: imageName, version: createHash('sha256').update(image).digest('hex').slice(0, 8) },
       });
       const tags = ogpTags({ title: group.title ?? '', description: group.description ?? '', siteUrl, imageUrl });
-      return html.replace('<title>EventPost</title>', tags);
+      return html.replace('<title>Fireside</title>', tags);
     },
     generateBundle() {
       if (publishImage) this.emitFile({ type: 'asset', fileName: imageName, source: image });

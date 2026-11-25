@@ -138,7 +138,7 @@
 ほかのサイトと運用を揃えるため、Firebase Hosting をやめて GitHub Pages で配信する。
 
 - Firebase の Web 設定：`/__/firebase/init.json`（Hosting 専用）は使えないので、ビルド時に `VITE_FIREBASE_API_KEY`、`VITE_FIREBASE_AUTH_DOMAIN`、`VITE_FIREBASE_PROJECT_ID`、`VITE_FIREBASE_APP_ID` で埋め込む（`web/src/lib/firebase.ts`）。ないまま本番用にビルドすると、開いたときにエラーになる
-- サブパス：`BASE_PATH`（例：`/event-post`）を Vite の `base` と React Router の `basename` に使う。省略すると `/`
+- サブパス：`BASE_PATH`（例：`/fireside`）を Vite の `base` と React Router の `basename` に使う。省略すると `/`
 - 直接開いた URL：ビルドの最後に `index.html` を `404.html` に複製する（`web/vite.config.ts`）。ステータスは 404 になるが、画面は出る
 - `firebase/firebase.json` から `hosting` を外し、main と同じ内容に戻した
 - main の `deploy.yml` は `app/`（旧版）だけをビルドして公開する。そのため、新版を main に入れても、公開中のサイトは段階 8 まで旧版のまま
@@ -148,9 +148,9 @@
 
 テンプレートから作ったリポジトリ（例：`kwaka1208/asugaku`）に本体の更新を届ける仕組み。
 
-- `.github/workflows/update.yml`（Update EventPost）：派生リポジトリで、毎週月曜と手動で、元のリポジトリの本体を取り込む PR を作る。元のリポジトリ自身では動かない
-- 残すのは `site/`、`.eventpost-keep`（とそこに書いたパス）、`.eventpost-version`（取り込んだ版の記録）。それ以外は元と同じにする。本体のパスを一覧で持たないので、`web/` のような新しいディレクトリにも追従する
-- 派生リポジトリには、Secret `EVENTPOST_UPDATE_TOKEN`（fine-grained PAT。Contents・Pull requests・Workflows を Read and write）が要る。`GITHUB_TOKEN` では `.github/workflows/` の変更を push できず、作った PR で CI も動かないため
+- `.github/workflows/update.yml`（Update Fireside）：派生リポジトリで、毎週月曜と手動で、元のリポジトリの本体を取り込む PR を作る。元のリポジトリ自身では動かない
+- 残すのは `site/`、`.fireside-keep`（とそこに書いたパス）、`.fireside-version`（取り込んだ版の記録）。それ以外は元と同じにする。本体のパスを一覧で持たないので、`web/` のような新しいディレクトリにも追従する
+- 派生リポジトリには、Secret `FIRESIDE_UPDATE_TOKEN`（fine-grained PAT。Contents・Pull requests・Workflows を Read and write）が要る。`GITHUB_TOKEN` では `.github/workflows/` の変更を push できず、作った PR で CI も動かないため
 - 手順は `UPDATING.md`。手作業の手順も同じ方式に揃えた
 - **注意**：main には作業中の新版（`web/` など）が入っている。派生リポジトリが取り込んでも、`deploy.yml` が旧版を公開する間は影響がない。段階 8 で `deploy.yml` を新版に切り替えると、取り込んだ時点で新版に移る。段階 8 では、派生リポジトリの移行手順（Firebase の設定、データ）を先に用意する
 
@@ -178,7 +178,7 @@
   - 旧版の `scripts/lib/smtp.ts` は `site/config.yml` に依存するので、import せず書き写して流用する
 - **4-B の仕様**（`npm run notify:next`、`--dry-run` で送らずに内容を表示する）
   - 環境変数：`SITE_URL`、`SMTP_USER`、`SMTP_PASSWORD` は必須。`SMTP_HOST` の既定は `smtp.gmail.com`、`SMTP_PORT` の既定は 465。`REPLY_TO` は省略できる
-  - 接続先：`FIRESTORE_EMULATOR_HOST` があれば `demo-event-post`、なければ `GOOGLE_CLOUD_PROJECT`
+  - 接続先：`FIRESTORE_EMULATOR_HOST` があれば `demo-fireside`、なければ `GOOGLE_CLOUD_PROJECT`
   - 申し込みの通知：その回の新しい申し込みをまとめて、管理者（`owner` と `admin`）1 人につき 1 通送る。1 人にでも届けば `notifiedAt` を書く
   - 承認の通知：`welcomedAt` がなく、`role != 'owner'` のメンバーに送る
   - 送信：3 回続けて失敗したら止める。失敗があれば終了コード 1 で終わる。ログには名前やメールアドレスを出さない
@@ -197,7 +197,7 @@
   - 単体：`tests/unit/`（`npm test`）
 - 型チェック：`npm run check`（画面は `web/tsconfig.json`、スクリプトとテストはルートの `tsconfig.json`）
 - 画面の確認：`npm run emulators` と `npx vite --config web/vite.config.ts --port 5179` を起動する
-  - エミュレーターのデータを消すとき：`curl -X DELETE "http://127.0.0.1:8180/emulator/v1/projects/demo-event-post/databases/(default)/documents"`
+  - エミュレーターのデータを消すとき：`curl -X DELETE "http://127.0.0.1:8180/emulator/v1/projects/demo-fireside/databases/(default)/documents"`
   - スクリーンショットで日時を確かめるときは、ブラウザを日本時間にする（Playwright なら `timezoneId: 'Asia/Tokyo'`）
 - この端末では `java` に PATH が通っていない。エミュレーターを使うコマンドの前に `export PATH="/opt/homebrew/opt/openjdk@21/bin:$PATH"` を付ける
 - ポート 8080 では、利用者が旧版のエミュレーターを動かしていることがある。止めたり、データを消したりしない

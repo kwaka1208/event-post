@@ -9,12 +9,12 @@ import {
   welcomeMail,
 } from '../../scripts/lib/messages';
 
-const siteUrl = 'https://example.github.io/event-post';
+const siteUrl = 'https://example.github.io/fireside';
 
 describe('pageUrl', () => {
   it('URL の末尾に / があってもなくても同じになる', () => {
-    expect(pageUrl(siteUrl, '/events')).toBe('https://example.github.io/event-post/events');
-    expect(pageUrl(`${siteUrl}/`, '/events')).toBe('https://example.github.io/event-post/events');
+    expect(pageUrl(siteUrl, '/events')).toBe('https://example.github.io/fireside/events');
+    expect(pageUrl(`${siteUrl}/`, '/events')).toBe('https://example.github.io/fireside/events');
   });
 });
 
@@ -29,7 +29,7 @@ describe('applicationsMail', () => {
   });
 
   it('本文に申し込み一覧の URL と、申し込んだ人ごとの名前と理由が入る', () => {
-    expect(mail.text).toContain('https://example.github.io/event-post/admin/applications');
+    expect(mail.text).toContain('https://example.github.io/fireside/admin/applications');
     expect(mail.text).toContain('- 山田 花子（はなこ）\n  理由：子どもと参加したいです。');
     expect(mail.text).toContain('- 佐藤 次郎（じろう）\n  理由：1 行目\n  2 行目');
   });
@@ -44,7 +44,7 @@ describe('welcomeMail', () => {
 
   it('本文にニックネームとイベント一覧の URL が入る', () => {
     expect(mail.text.startsWith('はなこ さん\n')).toBe(true);
-    expect(mail.text).toContain('https://example.github.io/event-post/events');
+    expect(mail.text).toContain('https://example.github.io/fireside/events');
   });
 });
 
@@ -106,7 +106,7 @@ describe('inquiryMail', () => {
   it('本文に送った人、内容、問い合わせ一覧の URL が入る', () => {
     expect(mail.text).toContain('送った人：山田 花子（はなこ）');
     expect(mail.text).toContain('ノートパソコンは必要ですか？\n\n---');
-    expect(mail.text).toContain('https://example.github.io/event-post/admin/inquiries');
+    expect(mail.text).toContain('https://example.github.io/fireside/admin/inquiries');
   });
 
   it('返信先は送った人', () => {

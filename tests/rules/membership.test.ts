@@ -32,7 +32,7 @@ import {
   type Role,
 } from '../../web/src/lib/membership';
 
-const PROJECT_ID = 'demo-event-post';
+const PROJECT_ID = 'demo-fireside';
 
 let env: RulesTestEnvironment;
 

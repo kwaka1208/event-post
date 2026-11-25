@@ -4,7 +4,7 @@ import { Loading } from '@/components/Status';
 import { isAdminRole } from '@/lib/membership';
 import { useSession } from '@/session/SessionProvider';
 
-const EVENTPOST_URL = 'https://github.com/kwaka1208/event-post';
+const FIRESIDE_URL = 'https://github.com/kwaka1208/fireside';
 
 export function Layout() {
   const { state, logout } = useSession();
@@ -18,7 +18,7 @@ export function Layout() {
   const email = session && 'user' in session ? session.user?.email : null;
 
   useEffect(() => {
-    document.title = groupName ?? 'EventPost';
+    document.title = groupName ?? 'Fireside';
   }, [groupName]);
 
   return (
@@ -26,7 +26,7 @@ export function Layout() {
       <header className="site-header">
         <div className="inner">
           <Link to="/" className="brand">
-            {groupName ?? 'EventPost'}
+            {groupName ?? 'Fireside'}
           </Link>
           {signedIn && (
             <span className="account">
@@ -64,7 +64,7 @@ export function Layout() {
         <div className="inner">
           {groupName && <div>© {groupName}</div>}
           <div className="powered">
-            Powered by <a href={EVENTPOST_URL}>EventPost</a>
+            Powered by <a href={FIRESIDE_URL}>Fireside</a>
           </div>
         </div>
       </footer>

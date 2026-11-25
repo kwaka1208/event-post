@@ -23,7 +23,7 @@ import {
 import { deleteInquiry, listInquiries, sendInquiry } from '../../web/src/lib/inquiries';
 import { updateProfile, withdraw, type Member, type Role } from '../../web/src/lib/membership';
 
-const PROJECT_ID = 'demo-event-post';
+const PROJECT_ID = 'demo-fireside';
 
 let env: RulesTestEnvironment;
 

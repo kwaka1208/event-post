@@ -32,7 +32,7 @@ import {
   register,
 } from '../../web/src/lib/registrations';
 
-const PROJECT_ID = 'demo-event-post';
+const PROJECT_ID = 'demo-fireside';
 
 let env: RulesTestEnvironment;
 
