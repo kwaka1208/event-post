@@ -252,8 +252,13 @@ a:hover {
 .list-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  /* どの行も同じ高さにして、すべてのカードの高さをそろえる */
-  grid-auto-rows: 1fr;
+}
+/* 2 列以上のとき（幅 428px 以上。190px × 2 列＋間 16px＋左右の余白 16px × 2）は、
+   どの行も同じ高さにして、すべてのカードの高さをそろえる。1 列のときは中身なりの高さにする */
+@media (min-width: 428px) {
+  .list-grid {
+    grid-auto-rows: 1fr;
+  }
 }
 .list-grid .summary dd {
   overflow-wrap: anywhere;
