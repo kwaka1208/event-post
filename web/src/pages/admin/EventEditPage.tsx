@@ -102,6 +102,7 @@ function EventForm({ event }: { event: EventDoc | null }) {
 
   return (
     <main className="main">
+      {event && <Registrants eventId={event.id} />}
       <form className="card" onSubmit={handleSubmit} noValidate>
         <h1 className="card-title">{event ? 'イベントを編集' : '新しいイベント'}</h1>
         {event && (
@@ -176,7 +177,6 @@ function EventForm({ event }: { event: EventDoc | null }) {
         </div>
       </form>
 
-      {event && <Registrants eventId={event.id} />}
       {event && <DeleteSection event={event} />}
     </main>
   );
