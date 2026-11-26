@@ -247,6 +247,68 @@ service cloud.firestore {
     }
 
     // ------------------------------------------------------------------
+    // topics/{topicId}：掲示板の話題。メンバーが立て、メンバー全員が読める。
+    // 書いた人のニックネームは、書いた時点の members の写し（あとで名前を変えても、投稿は当時のまま）
+    // ------------------------------------------------------------------
+    match /topics/{topicId} {
+      allow read: if isMember();
+
+      // 最後の投稿日時（lastPostedAt）は作成日時から始める。lastReplyId は返信がつくまで null
+      allow create: if isMember()
+        && exactKeys(request.resource.data,
+          ['uid', 'nickname', 'title', 'body', 'createdAt', 'lastPostedAt', 'lastReplyId'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.nickname == get(memberPath(request.auth.uid)).data.nickname
+        && text(request.resource.data.title, 1, 100)
+        && text(request.resource.data.body, 1, 5000)
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.lastPostedAt == request.time
+        && request.resource.data.lastReplyId == null;
+
+      // 返信がついたときに、最後の投稿日時を進める（一覧を新しい順に並べるため）。
+      // 同じ書き込みで、lastReplyId の返信を新しく作るときだけ。内容は変えられない
+      allow update: if isMember()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastPostedAt', 'lastReplyId'])
+        && request.resource.data.lastPostedAt == request.time
+        && request.resource.data.lastReplyId is string
+        && !exists(replyPath(topicId, request.resource.data.lastReplyId))
+        && existsAfter(replyPath(topicId, request.resource.data.lastReplyId));
+
+      // 立てた人と管理者。返信は、画面が先に 1 件ずつ消してから話題を消す
+      allow delete: if isMember() && (resource.data.uid == request.auth.uid || isAdmin());
+
+      function replyPath(topicId, replyId) {
+        return /databases/$(database)/documents/topics/$(topicId)/replies/$(replyId);
+      }
+
+      // ----------------------------------------------------------------
+      // topics/{topicId}/replies/{replyId}：話題への返信
+      // ----------------------------------------------------------------
+      match /replies/{replyId} {
+        allow read: if isMember();
+
+        // 話題の lastPostedAt と lastReplyId を同じ書き込みで進める
+        allow create: if isMember()
+          && exists(/databases/$(database)/documents/topics/$(topicId))
+          && exactKeys(request.resource.data, ['uid', 'nickname', 'body', 'createdAt'])
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.nickname == get(memberPath(request.auth.uid)).data.nickname
+          && text(request.resource.data.body, 1, 5000)
+          && request.resource.data.createdAt == request.time
+          && getAfter(/databases/$(database)/documents/topics/$(topicId)).data.lastReplyId == replyId;
+
+        // 内容は変えられない。直したいときは、消して書き直す
+        allow update: if false;
+
+        // 書いた人、管理者、話題を立てた人（話題を消すとき）
+        allow delete: if isMember()
+          && (resource.data.uid == request.auth.uid
+            || isAdmin()
+            || get(/databases/$(database)/documents/topics/$(topicId)).data.uid == request.auth.uid);
+      }
+    }
+
+    // ------------------------------------------------------------------
     // events/{eventId}：イベント。公開中はメンバーが、下書きは管理者だけが読める
     // ------------------------------------------------------------------
     match /events/{eventId} {
