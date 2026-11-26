@@ -20,6 +20,9 @@ const MailComposePage = page(() => import('@/pages/admin/MailComposePage'), 'Mai
 const MailsPage = page(() => import('@/pages/admin/MailsPage'), 'MailsPage');
 const MembersPage = page(() => import('@/pages/admin/MembersPage'), 'MembersPage');
 const SettingsPage = page(() => import('@/pages/admin/SettingsPage'), 'SettingsPage');
+const BoardPage = page(() => import('@/pages/BoardPage'), 'BoardPage');
+const TopicNewPage = page(() => import('@/pages/TopicNewPage'), 'TopicNewPage');
+const TopicPage = page(() => import('@/pages/TopicPage'), 'TopicPage');
 const ContactPage = page(() => import('@/pages/ContactPage'), 'ContactPage');
 const EventDetailPage = page(() => import('@/pages/EventDetailPage'), 'EventDetailPage');
 const EventsPage = page(() => import('@/pages/EventsPage'), 'EventsPage');
@@ -50,6 +53,9 @@ const router = createBrowserRouter(
           children: [
             { path: '/events', element: <EventsPage /> },
             { path: '/events/:id', element: <EventDetailPage /> },
+            { path: '/board', element: <BoardPage /> },
+            { path: '/board/new', element: <TopicNewPage /> },
+            { path: '/board/:id', element: <TopicPage /> },
             { path: '/me', element: <MyPage /> },
             { path: '/contact', element: <ContactPage /> },
           ],

@@ -40,6 +40,7 @@ export function Layout() {
         {isMember && (
           <nav className="inner site-nav" aria-label="メニュー">
             <NavLink to="/events">イベント</NavLink>
+            <NavLink to="/board">掲示板</NavLink>
             <NavLink to="/me">マイページ</NavLink>
             {!isAdmin && <NavLink to="/contact">問い合わせ</NavLink>}
             {isAdmin && (

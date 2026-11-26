@@ -731,3 +731,15 @@ details[open] summary {
 .compact-foot .button-text {
   font-size: 13px;
 }
+
+/* ---------------------------------------------------------------- 掲示板 */
+
+.post-meta {
+  margin: 0;
+  color: var(--text-sub);
+  font-size: 13px;
+}
+.post-body {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
