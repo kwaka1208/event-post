@@ -743,3 +743,23 @@ details[open] summary {
   margin: 0;
   overflow-wrap: anywhere;
 }
+
+/* ---------------------------------------------------------------- アプリの中のブラウザの案内 */
+
+.notice {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: var(--few-bg);
+  color: var(--few-text);
+  font-size: 14px;
+}
+.notice p {
+  margin: 0;
+}
+.notice .button-primary {
+  text-align: center;
+  text-decoration: none;
+}
