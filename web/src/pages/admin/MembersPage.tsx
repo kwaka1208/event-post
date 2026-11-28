@@ -1,11 +1,14 @@
 // メンバーの一覧（管理者）。役割ごと、またはタグごとに並べ、削除と役割の変更、タグの付け直しができる。
 // 参加者は管理者が、管理者は特権管理者が削除できる。役割を変えられるのは特権管理者だけ。
-// タグは管理者が付ける、グループの中での分類（例：「2026年度」「運営」）。管理者だけが見る
+// タグは管理者が付ける、グループの中での分類（例：「2026年度」「運営」）。管理者だけが見る。
+// 開いたときに、メンバー一覧（directory）をメンバーにそろえる（この機能より前からいるメンバーを足すため）
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useId, useState, type FormEvent } from 'react';
+import { useEffect, useId, useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
 import { useAdminMember } from '@/components/RequireAdmin';
 import { Loading, LoadError } from '@/components/Status';
+import { syncDirectory } from '@/lib/directory';
+import { directoryKeys } from '@/lib/directoryKeys';
 import { db } from '@/lib/firebase';
 import { formatDateTime } from '@/lib/format';
 import { LIMITS } from '@/lib/limits';
@@ -33,6 +36,15 @@ const sections: { role: Role; title: string }[] = [
 export function MembersPage() {
   const me = useAdminMember();
   const members = useQuery({ queryKey: membersKey, queryFn: () => listMembers(db) });
+  const queryClient = useQueryClient();
+
+  // メンバー一覧のそろえ直し。失敗しても、この画面の操作には関わらないので何も出さない
+  useEffect(() => {
+    if (!members.data) return;
+    syncDirectory(db, members.data)
+      .then(() => queryClient.invalidateQueries({ queryKey: directoryKeys.all }))
+      .catch(() => {});
+  }, [members.data, queryClient]);
 
   const [view, setView] = useState<'role' | 'tag'>('role');
 
@@ -51,7 +63,7 @@ export function MembersPage() {
 
   return (
     <main className="main">
-      <h1>メンバー（{members.data.length} 人）</h1>
+      <h1>メンバー管理（{members.data.length} 人）</h1>
       <Link to="/admin/mails/new" className="button-primary">
         メンバーにメールを送る
       </Link>

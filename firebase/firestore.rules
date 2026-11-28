@@ -169,6 +169,42 @@ service cloud.firestore {
     }
 
     // ------------------------------------------------------------------
+    // directory/{uid}：メンバー一覧に出す内容（ドキュメント ID は uid）。
+    // members は本人と管理者しか読めないので、メンバー全員に見せるもの（ニックネームの写し、
+    // 自己紹介、URL）だけをここに置く。ニックネームは、書いた後の members と同じでなければならない
+    // ------------------------------------------------------------------
+    match /directory/{uid} {
+      allow read: if isMember();
+
+      // 本人が自己紹介と URL を書く。グループの作成、名前の変更と同時にも書く
+      allow create, update: if signedIn()
+        && request.auth.uid == uid
+        && existsAfter(memberPath(uid))
+        && validDirectoryEntry(uid, request.resource.data);
+
+      // 管理者が、空の自己紹介で足す（承認と同時、またはこの機能より前からいるメンバーの分）
+      allow create: if isAdmin()
+        && existsAfter(memberPath(uid))
+        && validDirectoryEntry(uid, request.resource.data)
+        && request.resource.data.bio == ''
+        && request.resource.data.url == '';
+
+      // 消せるのは、メンバーでなくなったとき（退会・削除と同時、または後から）だけ
+      allow delete: if ((signedIn() && request.auth.uid == uid) || isAdmin())
+        && !existsAfter(memberPath(uid));
+
+      // URL は空か、http:// か https:// で始まって空白を含まないもの
+      function validDirectoryEntry(uid, d) {
+        return exactKeys(d, ['uid', 'nickname', 'bio', 'url'])
+          && d.uid == uid
+          && d.nickname == getAfter(memberPath(uid)).data.nickname
+          && text(d.bio, 0, 100)
+          && text(d.url, 0, 500)
+          && (d.url == '' || d.url.matches('https?://[^\\s]+'));
+      }
+    }
+
+    // ------------------------------------------------------------------
     // applications/{uid}：参加申し込み（ドキュメント ID は申込者の uid）
     // ------------------------------------------------------------------
     match /applications/{uid} {

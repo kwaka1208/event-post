@@ -1,11 +1,13 @@
 // マイページ（メンバー）。自分の情報と、申し込んだイベント（これから・参加した）を表示する。
-// 自分の本名とニックネームの変更と、退会もここで行う。キャンセルはイベントの詳細画面で行う
+// 自分の本名とニックネームの変更、メンバー一覧に出す自己紹介と URL の編集、退会もここで行う。キャンセルはイベントの詳細画面で行う
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { useMember } from '@/components/RequireMember';
 import { Loading, LoadError } from '@/components/Status';
 import { TextField } from '@/components/TextField';
+import { getDirectoryEntry, isValidUrl, normalizeUrl, saveIntroduction } from '@/lib/directory';
+import { directoryKeys } from '@/lib/directoryKeys';
 import { isPermissionDenied } from '@/lib/errors';
 import { eventKeys } from '@/lib/eventKeys';
 import { getEvent, type EventDoc } from '@/lib/events';
@@ -81,6 +83,8 @@ export function MyPage() {
       {hiddenCount > 0 && <p className="help">非公開になったイベントが {hiddenCount} 件あります。</p>}
 
       <Profile me={me} syncEventIds={syncEventIds} />
+
+      <Introduction me={me} />
 
       <Withdraw me={me} targets={cancelTargets} cancelTitles={cancelTitles} />
     </main>
@@ -168,7 +172,11 @@ function ProfileForm({
     setError(null);
     try {
       await updateProfile(db, me.uid, input, syncEventIds);
-      await Promise.all([refresh(), queryClient.invalidateQueries({ queryKey: eventKeys.all })]);
+      await Promise.all([
+        refresh(),
+        queryClient.invalidateQueries({ queryKey: eventKeys.all }),
+        queryClient.invalidateQueries({ queryKey: directoryKeys.all }),
+      ]);
       onDone(true);
     } catch (e) {
       // 名前の変更が済んでから申込の写しで失敗したときも、読み直して今の状態を見せる
@@ -204,6 +212,150 @@ function ProfileForm({
         メールアドレスはログインに使っている Google アカウントのものです。ここでは変えられません。
         {syncEventIds.length > 0 && `申し込んでいる開催前のイベント ${syncEventIds.length} 件にも、新しい名前を反映します。`}
       </p>
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="actions">
+        <button type="submit" className="button-primary" disabled={busy}>
+          保存する
+        </button>
+        <button type="button" className="button-secondary" disabled={busy} onClick={() => onDone(false)}>
+          やめる
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/** メンバー一覧に出す自己紹介と URL。「書く」で編集する */
+function Introduction({ me }: { me: Member }) {
+  const entry = useQuery({ queryKey: directoryKeys.entry(me.uid), queryFn: () => getDirectoryEntry(db, me.uid) });
+  const [editing, setEditing] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const sectionRef = useRef<HTMLElement>(null);
+  const { hash } = useLocation();
+
+  // メンバー一覧の「自分の自己紹介を書く」から来たときは、この欄までスクロールする
+  useEffect(() => {
+    if (hash === '#my-intro') sectionRef.current?.scrollIntoView();
+  }, [hash]);
+
+  const bio = entry.data?.bio ?? '';
+  const url = entry.data?.url ?? '';
+
+  return (
+    <section className="card" id="my-intro" ref={sectionRef} aria-labelledby="my-intro-title">
+      <h2 id="my-intro-title" className="card-title">
+        自己紹介
+      </h2>
+      {entry.isPending ? (
+        <Loading />
+      ) : entry.isError ? (
+        <LoadError />
+      ) : editing ? (
+        <IntroductionForm
+          me={me}
+          bio={bio}
+          url={url}
+          onDone={(changed) => {
+            setEditing(false);
+            setSaved(changed);
+          }}
+        />
+      ) : (
+        <>
+          {saved && (
+            <p className="notice" role="status">
+              保存しました。
+            </p>
+          )}
+          <p className="help">
+            <Link to="/members">メンバー</Link>の一覧に、ニックネームと一緒に出ます。メンバー全員が見られます。
+          </p>
+          <dl className="summary">
+            <dt>自己紹介</dt>
+            <dd>{bio || '（まだ書いていません）'}</dd>
+            <dt>URL</dt>
+            <dd className="directory-url">{url || '（なし）'}</dd>
+          </dl>
+          <button
+            type="button"
+            className="button-secondary"
+            onClick={() => {
+              setSaved(false);
+              setEditing(true);
+            }}
+          >
+            {bio || url ? '自己紹介を直す' : '自己紹介を書く'}
+          </button>
+        </>
+      )}
+    </section>
+  );
+}
+
+function IntroductionForm({
+  me,
+  bio: initialBio,
+  url: initialUrl,
+  onDone,
+}: {
+  me: Member;
+  bio: string;
+  url: string;
+  onDone: (changed: boolean) => void;
+}) {
+  const queryClient = useQueryClient();
+  const [bio, setBio] = useState(initialBio);
+  const [url, setUrl] = useState(initialUrl);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    const input = { bio: bio.trim(), url: normalizeUrl(url) };
+    if (!isValidUrl(input.url)) {
+      setError('URL は http:// か https:// で始めてください。');
+      return;
+    }
+    if (input.bio === initialBio && input.url === initialUrl) {
+      onDone(false);
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await saveIntroduction(db, me.uid, me.nickname, input);
+      await queryClient.invalidateQueries({ queryKey: directoryKeys.all });
+      onDone(true);
+    } catch (e) {
+      setError(
+        isPermissionDenied(e)
+          ? '保存できませんでした。入力内容を確認して、もう一度お試しください。'
+          : '保存できませんでした。通信状況を確認して、もう一度お試しください。',
+      );
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form className="stack" onSubmit={(e) => void handleSubmit(e)}>
+      <TextField
+        label="自己紹介"
+        value={bio}
+        onChange={setBio}
+        maxLength={LIMITS.introBio}
+        help={`${LIMITS.introBio} 文字までです（今 ${bio.trim().length} 文字）。`}
+      />
+      <TextField
+        label="URL"
+        value={url}
+        onChange={setUrl}
+        maxLength={LIMITS.introUrl}
+        help="ひとつだけ書けます。ブログや SNS のページなど。http:// か https:// で始めてください。"
+      />
       {error && (
         <p className="error" role="alert">
           {error}

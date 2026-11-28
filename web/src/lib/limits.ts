@@ -23,4 +23,8 @@ export const LIMITS = {
   topicTitle: 100,
   /** 掲示板の話題と返信の本文 */
   postBody: 5000,
+  /** メンバー一覧に出す自己紹介 */
+  introBio: 100,
+  /** メンバー一覧に出す URL */
+  introUrl: 500,
 } as const;

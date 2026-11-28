@@ -27,6 +27,7 @@ const ContactPage = page(() => import('@/pages/ContactPage'), 'ContactPage');
 const EventDetailPage = page(() => import('@/pages/EventDetailPage'), 'EventDetailPage');
 const EventsPage = page(() => import('@/pages/EventsPage'), 'EventsPage');
 const JoinPage = page(() => import('@/pages/JoinPage'), 'JoinPage');
+const MembersDirectoryPage = page(() => import('@/pages/MembersDirectoryPage'), 'MembersDirectoryPage');
 const MyPage = page(() => import('@/pages/MyPage'), 'MyPage');
 const SetupPage = page(() => import('@/pages/SetupPage'), 'SetupPage');
 const EventEditPage = page(() => import('@/pages/admin/EventEditPage'), 'EventEditPage');
@@ -56,6 +57,7 @@ const router = createBrowserRouter(
             { path: '/board', element: <BoardPage /> },
             { path: '/board/new', element: <TopicNewPage /> },
             { path: '/board/:id', element: <TopicPage /> },
+            { path: '/members', element: <MembersDirectoryPage /> },
             { path: '/me', element: <MyPage /> },
             { path: '/contact', element: <ContactPage /> },
           ],
