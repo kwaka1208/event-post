@@ -51,12 +51,15 @@ function EventForm({ event }: { event: EventDoc | null }) {
   const me = useAdminMember();
   const [values, setValues] = useState<EventFormValues>(event ? eventToForm(event) : emptyEventForm);
   const [errors, setErrors] = useState<string[]>([]);
+  const formId = useId();
   // 保存したら、メンバー全員にお知らせのメールを作る（公開するときだけ選べる。うっかり送らないよう、最初は外しておく）
   const [announce, setAnnounce] = useState(false);
   const registrationCount = event?.registrationCount ?? 0;
 
-  const set = <K extends keyof EventFormValues>(key: K) => (value: EventFormValues[K]) =>
-    setValues((v) => ({ ...v, [key]: value }));
+  const set =
+    <K extends keyof EventFormValues>(key: K) =>
+    (value: EventFormValues[K]) =>
+      setValues((v) => ({ ...v, [key]: value }));
 
   const save = useMutation({
     mutationFn: async (input: EventInput) => {
@@ -102,14 +105,16 @@ function EventForm({ event }: { event: EventDoc | null }) {
 
   return (
     <main className="main">
+      <p className="back">
+        <Link to="/admin/events">← イベント管理</Link>
+      </p>
+      <h1>{event ? 'イベントを編集' : '新しいイベント'}</h1>
       {event && <Registrants eventId={event.id} />}
-      <form className="card" onSubmit={handleSubmit} noValidate>
-        <h1 className="card-title">{event ? 'イベントを編集' : '新しいイベント'}</h1>
-        {event && (
-          <p className="help">
-            申込：{registrationCount} 人。定員は、申込数より少なくできません。
-          </p>
-        )}
+      <form className="card" onSubmit={handleSubmit} noValidate aria-labelledby={`${formId}-title`}>
+        <h2 className="card-title" id={`${formId}-title`}>
+          イベントの内容
+        </h2>
+        {event && <p className="help">申込：{registrationCount} 人。定員は、申込数より少なくできません。</p>}
 
         <TextField label="タイトル" value={values.title} onChange={set('title')} maxLength={LIMITS.eventTitle} required />
         <DateTimeField label="開始日時" value={values.startAt} onChange={set('startAt')} required />
@@ -150,7 +155,8 @@ function EventForm({ event }: { event: EventDoc | null }) {
             onChange={(e) => setAnnounce(e.target.checked)}
           />
           <span>
-            保存したら、メンバー全員にこのイベントをメールで知らせる（日時・会場・ページの URL を、次の毎時の送信で送ります。送る前なら「メール」の画面から取りやめられます）
+            保存したら、メンバー全員にこのイベントをメールで知らせる（日時・会場・ページの URL
+            を、次の毎時の送信で送ります。送る前なら「メール」の画面から取りやめられます）
           </span>
         </label>
 
@@ -254,7 +260,9 @@ function DeleteSection({ event }: { event: EventDoc }) {
     return (
       <section className="card">
         <h2 className="card-title">イベントの削除</h2>
-        <p>申込があるイベントは削除できません。参加者に見せたくないときは、「公開する」のチェックを外して下書きにしてください。</p>
+        <p>
+          申込があるイベントは削除できません。参加者に見せたくないときは、「公開する」のチェックを外して下書きにしてください。
+        </p>
       </section>
     );
   }

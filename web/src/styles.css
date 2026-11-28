@@ -1,12 +1,17 @@
 /* デザイントークン、基礎のスタイル、画面で共通に使う部品のスタイル */
 :root {
+  color-scheme: light dark;
+
+  /* テーマカラー。--accent は塗り（白い文字を載せる）、--accent-fg はページの上の文字（リンクなど）に使う */
   --accent: #0f6e8c;
-  --accent-light: color-mix(in srgb, var(--accent) 12%, #fff);
+  --accent-fg: var(--accent);
+  --accent-light: color-mix(in srgb, var(--accent) 12%, var(--card));
   --accent-hover: color-mix(in srgb, var(--accent) 80%, #000);
 
   --bg: #f4f6f8;
   --card: #ffffff;
   --border: #e2e6ea;
+  --border-strong: #c7ced6;
   --divider: #eef1f4;
   --text: #1b2430;
   --text-sub: #4a5562;
@@ -16,14 +21,51 @@
   --disabled-bg: #e6e9ed;
   --disabled-text: #3a4552;
   --success: #2e7d4f;
+  --success-bg: color-mix(in srgb, var(--success) 12%, var(--card));
   --danger: #b42318;
   --danger-bg: #fdecea;
+  /* 白い文字を載せる赤（ダークモードでも変えない） */
+  --danger-fill: #b42318;
 
-  --radius-card: 14px;
-  --radius-button: 12px;
+  --radius-card: 18px;
+  --radius-field: 10px;
+  /* ボタンはピル型（高さの半分の角丸） */
+  --radius-button: 999px;
+
+  --shadow-raised: 0 8px 24px rgb(16 24 40 / 0.08);
+  --ease: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --duration-hover: 0.15s;
 
   --font-heading: 'Zen Maru Gothic', sans-serif;
   --font-body: 'Zen Kaku Gothic New', sans-serif;
+}
+
+/* ダークモード。端末の設定に合わせる。テーマカラーの塗りはそのまま使い、文字に使うときだけ明るくして読めるようにする */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --accent-fg: color-mix(in srgb, var(--accent) 45%, #fff);
+    --accent-light: color-mix(in srgb, var(--accent) 28%, var(--card));
+    --accent-hover: color-mix(in srgb, var(--accent) 80%, #fff);
+
+    --bg: #111317;
+    --card: #1c1f24;
+    --border: #2f343b;
+    --border-strong: #454c55;
+    --divider: #272b31;
+    --text: #eceef1;
+    --text-sub: #a9b0ba;
+
+    --few-bg: #3a2414;
+    --few-text: #f3b98a;
+    --disabled-bg: #2c3138;
+    --disabled-text: #c3c9d1;
+    --success: #6cc493;
+    --success-bg: color-mix(in srgb, var(--success) 14%, var(--card));
+    --danger: #f2877c;
+    --danger-bg: #3a1c1a;
+
+    --shadow-raised: 0 8px 24px rgb(0 0 0 / 0.4);
+  }
 }
 
 *,
@@ -46,13 +88,58 @@ body {
   font-family: var(--font-body);
   font-size: 16px; /* 本文の標準 */
   line-height: 1.75;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 日本語の組版：見出しは文節で改行して行の長さをそろえ、本文は最後の行に 1 文字だけ残らないようにする */
+h1,
+h2,
+h3 {
+  word-break: auto-phrase;
+  text-wrap: balance;
+}
+p,
+dd,
+li {
+  text-wrap: pretty;
+  line-break: strict;
 }
 
 a {
-  color: var(--accent);
+  color: var(--accent-fg);
+  text-underline-offset: 0.2em;
+  text-decoration-thickness: 1px;
 }
 a:hover {
   color: var(--accent-hover);
+}
+@media (prefers-color-scheme: dark) {
+  a:hover {
+    color: var(--accent-fg);
+    text-decoration-thickness: 2px;
+  }
+}
+
+/* 押せるものの色の変化は、短く静かに */
+a,
+button,
+.card-link {
+  transition:
+    color var(--duration-hover) ease-out,
+    background-color var(--duration-hover) ease-out,
+    border-color var(--duration-hover) ease-out,
+    box-shadow var(--duration-hover) ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  a,
+  button,
+  .card-link {
+    transition: none;
+  }
+}
+input[type='checkbox'],
+input[type='radio'] {
+  accent-color: var(--accent);
 }
 
 :focus-visible {
@@ -112,7 +199,7 @@ a:hover {
   overflow-wrap: anywhere;
 }
 .brand:hover {
-  color: var(--accent);
+  color: var(--accent-fg);
 }
 .account {
   display: flex;
@@ -175,7 +262,7 @@ a:hover {
 }
 .site-nav a:hover,
 .site-nav a.active {
-  color: var(--accent);
+  color: var(--accent-fg);
 }
 .site-nav a.active {
   font-weight: 700;
@@ -310,8 +397,9 @@ a:hover {
 .main h1 {
   margin: 0;
   font-family: var(--font-heading);
-  font-size: 26px;
-  line-height: 1.4;
+  font-size: clamp(26px, 1.2vw + 20px, 32px);
+  line-height: 1.35;
+  letter-spacing: 0.01em;
   overflow-wrap: anywhere;
 }
 
@@ -472,8 +560,8 @@ a:hover {
 }
 .button-secondary {
   min-height: 48px;
-  border: 1px solid #c7ced6;
-  background: #fff;
+  border: 1px solid var(--border-strong);
+  background: var(--card);
   color: var(--text);
   font-size: 15px;
 }
@@ -493,7 +581,7 @@ a:hover {
   padding: 0 16px;
   border: none;
   border-radius: var(--radius-button);
-  background: var(--danger);
+  background: var(--danger-fill);
   color: #fff;
   font-family: inherit;
   font-size: 15px;
@@ -501,7 +589,7 @@ a:hover {
   cursor: pointer;
 }
 .button-danger:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--danger) 80%, #000);
+  background: color-mix(in srgb, var(--danger-fill) 80%, #000);
 }
 .button-danger:disabled {
   opacity: 0.6;
@@ -536,7 +624,7 @@ a:hover {
   padding: 0 6px;
   border-radius: 4px;
   background: var(--accent-light);
-  color: var(--accent);
+  color: var(--accent-fg);
   font-size: 11px;
   font-weight: 700;
 }
@@ -544,9 +632,9 @@ a:hover {
   width: 100%;
   min-height: 48px;
   padding: 0 12px;
-  border: 1px solid #c7ced6;
-  border-radius: 10px;
-  background: #fff;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-field);
+  background: var(--card);
   color: var(--text);
   font-family: inherit;
   font-size: 16px; /* iOS の自動ズームを防ぐ */
@@ -556,7 +644,8 @@ a:hover {
   resize: vertical;
 }
 .help {
-  font-size: 12px;
+  font-size: 13px;
+  line-height: 1.6;
   color: var(--text-sub);
 }
 .error {
@@ -579,6 +668,20 @@ a:hover {
 .summary dd {
   margin: 0 0 8px;
 }
+/* 広い画面では、項目名を左、内容を右に並べて、縦に間延びさせない（カードを並べた一覧は狭いので除く） */
+@media (min-width: 480px) {
+  .summary:not(.list-grid .summary) {
+    grid-template-columns: max-content 1fr;
+    gap: 10px 24px;
+    align-items: baseline;
+  }
+  .summary:not(.list-grid .summary) dt {
+    min-width: 5.5em;
+  }
+  .summary:not(.list-grid .summary) dd {
+    margin: 0;
+  }
+}
 .pre-wrap {
   white-space: pre-wrap;
 }
@@ -590,7 +693,8 @@ a:hover {
   text-decoration: none;
 }
 .card-link:hover {
-  border-color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent-fg) 50%, var(--border));
+  box-shadow: var(--shadow-raised);
   color: inherit;
 }
 .badges {
@@ -602,7 +706,7 @@ a:hover {
   padding: 2px 8px;
   border-radius: 999px;
   background: var(--accent-light);
-  color: var(--accent);
+  color: var(--accent-fg);
   font-size: 12px;
   font-weight: 700;
 }
@@ -629,7 +733,7 @@ ul.error {
   padding-left: 28px;
 }
 .badge-done {
-  background: color-mix(in srgb, var(--success) 14%, #fff);
+  background: var(--success-bg);
   color: var(--success);
 }
 .badge-few {
@@ -752,7 +856,7 @@ ul.error {
 .notice {
   padding: 10px 12px;
   border-radius: 10px;
-  background: color-mix(in srgb, var(--success) 12%, #fff);
+  background: var(--success-bg);
   color: var(--success);
   font-size: 14px;
 }
@@ -794,7 +898,7 @@ ul.error {
 }
 details summary {
   cursor: pointer;
-  color: var(--accent);
+  color: var(--accent-fg);
   font-size: 14px;
 }
 details[open] summary {
@@ -879,7 +983,7 @@ details[open] summary {
   padding: 12px 0;
   line-height: 20px;
   cursor: pointer;
-  color: var(--accent);
+  color: var(--accent-fg);
 }
 .compact-foot .button-text {
   font-size: 13px;
@@ -1125,7 +1229,7 @@ details[open] summary {
   height: 48px;
   padding: 2px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-button);
+  border-radius: var(--radius-field);
   background: var(--card);
   cursor: pointer;
 }
@@ -1135,7 +1239,8 @@ details[open] summary {
 }
 /* 見本は、選んでいる色をこの中だけで当てる（保存するまで、ほかの画面は変えない） */
 .accent-preview {
-  --accent-light: color-mix(in srgb, var(--accent) 12%, #fff);
+  --accent-fg: var(--accent);
+  --accent-light: color-mix(in srgb, var(--accent) 12%, var(--card));
   --accent-hover: color-mix(in srgb, var(--accent) 80%, #000);
   display: flex;
   flex-direction: column;
@@ -1155,6 +1260,12 @@ details[open] summary {
   padding: 0 24px;
   cursor: default;
 }
+@media (prefers-color-scheme: dark) {
+  .accent-preview {
+    --accent-fg: color-mix(in srgb, var(--accent) 45%, #fff);
+    --accent-light: color-mix(in srgb, var(--accent) 28%, var(--card));
+  }
+}
 
 /* ---------------------------------------------------------------- プロフィール画像 */
 .avatar {
@@ -1165,7 +1276,7 @@ details[open] summary {
   border-radius: 50%;
   object-fit: cover;
   background: var(--accent-light);
-  color: var(--accent);
+  color: var(--accent-fg);
   font-weight: 700;
   line-height: 1;
   user-select: none;

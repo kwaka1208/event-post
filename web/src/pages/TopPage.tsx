@@ -47,49 +47,56 @@ export function TopPage() {
         {group.description && <p className="description">{group.description}</p>}
       </section>
 
-      <section className="card">
-        {withdrawn && (
-          <p className="notice" role="status">
-            退会しました。ご参加ありがとうございました。
-          </p>
-        )}
-        {session.kind === 'guest' && (
-          <>
-            <p>このグループのページは、参加しているメンバーだけが見られます。Google アカウントでログインしてください。</p>
-            <ol className="steps">
-              <li>
-                ログインのボタンを押すと、Google の画面が開きます。使うアカウントを選び、このサイトへのログインを確認する画面が出たら、続行してください。
-              </li>
-              <li>はじめての方は、ログインのあとに参加申し込みの画面が出ます。名前とニックネーム、申し込みの理由を入れて送ってください。</li>
-              <li>
-                管理者が申し込みを承認すると、イベントを見たり申し込んだりできるようになります。承認されるまでは、ページを見られません。承認されるとメールでお知らせします。
-              </li>
-            </ol>
-            <LoginButton onLoggedIn={() => setJustLoggedIn(true)} />
-          </>
-        )}
-        {session.kind === 'newcomer' && (
-          <>
-            <p>このグループに参加するには、申し込みが必要です。</p>
-            <Link to="/join" className="button-primary">
-              参加を申し込む
-            </Link>
-          </>
-        )}
-        {session.kind === 'pending' && (
-          <>
-            <p>参加の申し込みを受け付けました。管理者の承認をお待ちください。</p>
-            <Link to="/join" className="button-secondary">
-              申し込みの内容を見る
-            </Link>
-          </>
-        )}
-        {session.kind === 'member' && (
+      {/* メンバーには、カードで囲まず、次に進むボタンだけを出す */}
+      {session.kind === 'member' ? (
+        <div className="actions">
           <Link to="/events" className="button-primary">
             イベントを見る
           </Link>
-        )}
-      </section>
+        </div>
+      ) : (
+        <section className="card">
+          {withdrawn && (
+            <p className="notice" role="status">
+              退会しました。ご参加ありがとうございました。
+            </p>
+          )}
+          {session.kind === 'guest' && (
+            <>
+              <p>このグループのページは、参加しているメンバーだけが見られます。Google アカウントでログインしてください。</p>
+              <ol className="steps">
+                <li>
+                  ログインのボタンを押すと、Google
+                  の画面が開きます。使うアカウントを選び、このサイトへのログインを確認する画面が出たら、続行してください。
+                </li>
+                <li>
+                  はじめての方は、ログインのあとに参加申し込みの画面が出ます。名前とニックネーム、申し込みの理由を入れて送ってください。
+                </li>
+                <li>
+                  管理者が申し込みを承認すると、イベントを見たり申し込んだりできるようになります。承認されるまでは、ページを見られません。承認されるとメールでお知らせします。
+                </li>
+              </ol>
+              <LoginButton onLoggedIn={() => setJustLoggedIn(true)} />
+            </>
+          )}
+          {session.kind === 'newcomer' && (
+            <>
+              <p>このグループに参加するには、申し込みが必要です。</p>
+              <Link to="/join" className="button-primary">
+                参加を申し込む
+              </Link>
+            </>
+          )}
+          {session.kind === 'pending' && (
+            <>
+              <p>参加の申し込みを受け付けました。管理者の承認をお待ちください。</p>
+              <Link to="/join" className="button-secondary">
+                申し込みの内容を見る
+              </Link>
+            </>
+          )}
+        </section>
+      )}
     </main>
   );
 }
