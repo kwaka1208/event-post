@@ -1,11 +1,13 @@
 // マイページ（メンバー）。自分の情報と、申し込んだイベント（これから・参加した）を表示する。
 // 自分の本名とニックネームの変更、メンバー一覧に出す自己紹介と URL の編集、退会もここで行う。キャンセルはイベントの詳細画面で行う
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
+import { Avatar } from '@/components/Avatar';
 import { useMember } from '@/components/RequireMember';
 import { Loading, LoadError } from '@/components/Status';
 import { TextField } from '@/components/TextField';
+import { AvatarError, makeAvatar } from '@/lib/avatar';
 import { getDirectoryEntry, isValidUrl, normalizeUrl, saveIntroduction } from '@/lib/directory';
 import { directoryKeys } from '@/lib/directoryKeys';
 import { isPermissionDenied } from '@/lib/errors';
@@ -244,6 +246,7 @@ function Introduction({ me }: { me: Member }) {
 
   const bio = entry.data?.bio ?? '';
   const url = entry.data?.url ?? '';
+  const photo = entry.data?.photo ?? '';
 
   return (
     <section className="card" id="my-intro" ref={sectionRef} aria-labelledby="my-intro-title">
@@ -259,6 +262,7 @@ function Introduction({ me }: { me: Member }) {
           me={me}
           bio={bio}
           url={url}
+          photo={photo}
           onDone={(changed) => {
             setEditing(false);
             setSaved(changed);
@@ -274,6 +278,7 @@ function Introduction({ me }: { me: Member }) {
           <p className="help">
             <Link to="/members">メンバー</Link>の一覧に、ニックネームと一緒に出ます。メンバー全員が見られます。
           </p>
+          <Avatar nickname={me.nickname} photo={photo || undefined} size={96} />
           <dl className="summary">
             <dt>自己紹介</dt>
             <dd>{bio || '（まだ書いていません）'}</dd>
@@ -288,7 +293,7 @@ function Introduction({ me }: { me: Member }) {
               setEditing(true);
             }}
           >
-            {bio || url ? '自己紹介を直す' : '自己紹介を書く'}
+            {bio || url || photo ? '自己紹介を直す' : '自己紹介を書く'}
           </button>
         </>
       )}
@@ -300,27 +305,48 @@ function IntroductionForm({
   me,
   bio: initialBio,
   url: initialUrl,
+  photo: initialPhoto,
   onDone,
 }: {
   me: Member;
   bio: string;
   url: string;
+  photo: string;
   onDone: (changed: boolean) => void;
 }) {
   const queryClient = useQueryClient();
   const [bio, setBio] = useState(initialBio);
   const [url, setUrl] = useState(initialUrl);
+  const [photo, setPhoto] = useState(initialPhoto);
+  const [photoBusy, setPhotoBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const fileId = useId();
+
+  async function handleFile(file: File | undefined) {
+    if (!file) return;
+    setPhotoBusy(true);
+    setError(null);
+    try {
+      setPhoto(await makeAvatar(file));
+    } catch (e) {
+      setError(e instanceof AvatarError ? e.message : 'この画像は読み込めませんでした。別の画像をお試しください。');
+    } finally {
+      setPhotoBusy(false);
+      // 同じファイルを選び直しても、もう一度読み込めるようにする
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    const input = { bio: bio.trim(), url: normalizeUrl(url) };
+    const input = { bio: bio.trim(), url: normalizeUrl(url), photo };
     if (!isValidUrl(input.url)) {
       setError('URL は http:// か https:// で始めてください。');
       return;
     }
-    if (input.bio === initialBio && input.url === initialUrl) {
+    if (input.bio === initialBio && input.url === initialUrl && photo === initialPhoto) {
       onDone(false);
       return;
     }
@@ -342,6 +368,34 @@ function IntroductionForm({
 
   return (
     <form className="stack" onSubmit={(e) => void handleSubmit(e)}>
+      <div className="field">
+        <span className="label" id={`${fileId}-label`}>
+          画像
+        </span>
+        <div className="photo-field">
+          <Avatar nickname={me.nickname} photo={photo || undefined} size={96} />
+          <div className="actions">
+            <input
+              ref={fileRef}
+              id={fileId}
+              className="visually-hidden"
+              type="file"
+              accept="image/*"
+              aria-labelledby={`${fileId}-label`}
+              onChange={(e) => void handleFile(e.target.files?.[0])}
+            />
+            <button type="button" className="button-secondary" disabled={busy || photoBusy} onClick={() => fileRef.current?.click()}>
+              {photoBusy ? '読み込んでいます…' : photo ? '画像を変える' : '画像を選ぶ'}
+            </button>
+            {photo && (
+              <button type="button" className="button-text" disabled={busy || photoBusy} onClick={() => setPhoto('')}>
+                画像を外す
+              </button>
+            )}
+          </div>
+        </div>
+        <span className="help">真ん中を正方形に切り取って、小さくしてから保存します。メンバー全員が見られます。</span>
+      </div>
       <TextField
         label="自己紹介"
         value={bio}
@@ -362,7 +416,7 @@ function IntroductionForm({
         </p>
       )}
       <div className="actions">
-        <button type="submit" className="button-primary" disabled={busy}>
+        <button type="submit" className="button-primary" disabled={busy || photoBusy}>
           保存する
         </button>
         <button type="button" className="button-secondary" disabled={busy} onClick={() => onDone(false)}>

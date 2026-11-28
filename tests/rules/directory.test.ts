@@ -162,6 +162,44 @@ describe('自己紹介を書く', () => {
 });
 
 // ---------------------------------------------------------------------------
+// プロフィール画像
+// ---------------------------------------------------------------------------
+
+/** 小さな JPEG の data: URL の形をしたもの（中身はルールでは確かめない） */
+const PHOTO = 'data:image/jpeg;base64,' + 'A'.repeat(200);
+
+describe('プロフィール画像', () => {
+  it('本人は画像を付けられ、外せる', async () => {
+    await assertSucceeds(saveIntroduction(userDb('alice'), 'alice', 'alice', { ...INTRO, photo: PHOTO }));
+    expect(await read('directory/alice')).toEqual({ uid: 'alice', nickname: 'alice', ...INTRO, photo: PHOTO });
+    await assertSucceeds(saveIntroduction(userDb('alice'), 'alice', 'alice', { ...INTRO, photo: '' }));
+    expect(await read('directory/alice')).toEqual({ uid: 'alice', nickname: 'alice', ...INTRO });
+  });
+
+  it('画像は JPEG・PNG・WebP の data: URL で、10 万字まで', async () => {
+    await assertSucceeds(saveIntroduction(userDb('alice'), 'alice', 'alice', { ...INTRO, photo: 'data:image/png;base64,AAAA' }));
+    for (const photo of [
+      'https://example.com/a.jpg',
+      'data:image/svg+xml;base64,AAAA',
+      'data:text/html;base64,AAAA',
+      'data:image/jpeg;base64,' + 'A'.repeat(100000),
+    ]) {
+      await assertFails(setDoc(doc(userDb('alice'), 'directory', 'alice'), { uid: 'alice', nickname: 'alice', ...INTRO, photo }));
+    }
+  });
+
+  it('名前を変えても、画像は残る', async () => {
+    await seedEntry('alice', { ...INTRO, photo: PHOTO });
+    await assertSucceeds(updateProfile(userDb('alice'), 'alice', { realName: '本名', nickname: 'ありす' }, []));
+    expect(await read('directory/alice')).toEqual({ uid: 'alice', nickname: 'ありす', ...INTRO, photo: PHOTO });
+  });
+
+  it('管理者が足すときは、画像を付けられない', async () => {
+    await assertFails(setDoc(doc(userDb('admin'), 'directory', 'bob'), { uid: 'bob', nickname: 'bob', bio: '', url: '', photo: PHOTO }));
+  });
+});
+
+// ---------------------------------------------------------------------------
 // ほかの書き込みと同時に書く
 // ---------------------------------------------------------------------------
 

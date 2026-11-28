@@ -78,6 +78,13 @@ service cloud.firestore {
         && validGroup(request.resource.data)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'description', 'ownerName']);
 
+      // 管理者（特権管理者を含む）が、テーマカラーを変える・消す。コントラストは画面で確かめる
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['accentColor'])
+        && (!('accentColor' in request.resource.data)
+          || (request.resource.data.accentColor is string
+            && request.resource.data.accentColor.matches('#[0-9a-f]{6}')));
+
       allow delete: if false;
 
       function validGroup(d) {
@@ -187,15 +194,20 @@ service cloud.firestore {
         && existsAfter(memberPath(uid))
         && validDirectoryEntry(uid, request.resource.data)
         && request.resource.data.bio == ''
-        && request.resource.data.url == '';
+        && request.resource.data.url == ''
+        && !('photo' in request.resource.data);
 
       // 消せるのは、メンバーでなくなったとき（退会・削除と同時、または後から）だけ
       allow delete: if ((signedIn() && request.auth.uid == uid) || isAdmin())
         && !existsAfter(memberPath(uid));
 
-      // URL は空か、http:// か https:// で始まって空白を含まないもの
+      // URL は空か、http:// か https:// で始まって空白を含まないもの。
+      // 画像（photo）はなくてもよい。あるときは JPEG・PNG・WebP の data: URL で、10 万字まで
       function validDirectoryEntry(uid, d) {
-        return exactKeys(d, ['uid', 'nickname', 'bio', 'url'])
+        return d.keys().hasOnly(['uid', 'nickname', 'bio', 'url', 'photo'])
+          && d.keys().hasAll(['uid', 'nickname', 'bio', 'url'])
+          && (!('photo' in d) || (text(d.photo, 1, 100000)
+            && d.photo.matches('data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+')))
           && d.uid == uid
           && d.nickname == getAfter(memberPath(uid)).data.nickname
           && text(d.bio, 0, 100)

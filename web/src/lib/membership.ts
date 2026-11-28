@@ -15,7 +15,7 @@ import {
   type Firestore,
   type Timestamp,
 } from 'firebase/firestore';
-import { directoryRef, getDirectoryEntry } from './directory';
+import { directoryRef, entryData, getDirectoryEntry } from './directory';
 import { isPermissionDenied } from './errors';
 import { cancelRegistration } from './registrations';
 
@@ -155,7 +155,10 @@ export async function updateProfile(db: Firestore, uid: string, input: ProfileIn
   const entry = await getDirectoryEntry(db, uid);
   const batch = writeBatch(db);
   batch.update(memberRef(db, uid), { realName: input.realName, nickname: input.nickname });
-  batch.set(directoryRef(db, uid), { uid, nickname: input.nickname, bio: entry?.bio ?? '', url: entry?.url ?? '' });
+  batch.set(
+    directoryRef(db, uid),
+    entryData(uid, input.nickname, { bio: entry?.bio ?? '', url: entry?.url ?? '', photo: entry?.photo ?? '' }),
+  );
   await batch.commit();
   for (let i = 0; i < eventIds.length; i += PROFILE_SYNC_CHUNK) {
     const batch = writeBatch(db);

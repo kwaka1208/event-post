@@ -13,11 +13,22 @@ export interface DirectoryEntry {
   bio: string;
   /** http:// か https:// で始まる URL。書いていなければ空 */
   url: string;
+  /** プロフィール画像（data: URL の JPEG。avatar.ts で小さくしたもの）。設定していなければ undefined */
+  photo?: string;
 }
 
 export interface IntroductionInput {
   bio: string;
   url: string;
+  /** 空か undefined なら画像なし */
+  photo?: string;
+}
+
+/** 書き込む内容。画像がないときは photo の項目自体を書かない */
+export function entryData(uid: string, nickname: string, input: IntroductionInput): DirectoryEntry {
+  const data: DirectoryEntry = { uid, nickname, bio: input.bio, url: input.url };
+  if (input.photo) data.photo = input.photo;
+  return data;
 }
 
 export function directoryRef(db: Firestore, uid: string) {
@@ -47,14 +58,14 @@ export function isValidUrl(url: string): boolean {
   return url === '' || (url.length <= LIMITS.introUrl && /^https?:\/\/\S+$/.test(url));
 }
 
-/** 本人が自己紹介と URL を書く。ニックネームは members と同じものを写す */
+/** 本人が自己紹介、URL、画像を書く。ニックネームは members と同じものを写す */
 export async function saveIntroduction(
   db: Firestore,
   uid: string,
   nickname: string,
   input: IntroductionInput,
 ): Promise<void> {
-  await setDoc(directoryRef(db, uid), { uid, nickname, bio: input.bio, url: input.url });
+  await setDoc(directoryRef(db, uid), entryData(uid, nickname, input));
 }
 
 /** 1 回の書き込みでそろえる人数（ルールの get の回数の上限に収まるように） */

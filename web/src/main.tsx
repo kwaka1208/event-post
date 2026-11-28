@@ -8,7 +8,11 @@ import { RequireMember } from '@/components/RequireMember';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { TopPage } from '@/pages/TopPage';
 import { SessionProvider } from '@/session/SessionProvider';
+import { applyCachedAccent } from '@/lib/theme';
 import '@/styles.css';
+
+// 前に開いたときのテーマカラーを、最初の表示の前に当てる（標準の色が一瞬見えないように）
+applyCachedAccent();
 
 // トップページとページが見つからない画面のほかは、開いたときに読み込む（最初の読み込みを軽くするため）
 const page = <K extends string>(load: () => Promise<Record<K, ComponentType>>, name: K) =>
