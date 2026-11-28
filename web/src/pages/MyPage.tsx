@@ -443,7 +443,7 @@ function Withdraw({
       ) : (
         <>
           <p>グループから抜けたいときは、ここから退会できます。</p>
-          <button type="button" className="button-secondary" onClick={() => setConfirming(true)}>
+          <button type="button" className="button-secondary is-destructive" onClick={() => setConfirming(true)}>
             退会する
           </button>
         </>

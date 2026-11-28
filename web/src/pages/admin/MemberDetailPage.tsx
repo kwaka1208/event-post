@@ -136,7 +136,7 @@ function MemberItem({ me, member, knownTags }: { me: Member; member: Member; kno
                 </button>
               )}
               {removable && (
-                <button type="button" className="button-secondary" disabled={busy} onClick={() => setConfirmingRemove(true)}>
+                <button type="button" className="button-secondary is-destructive" disabled={busy} onClick={() => setConfirmingRemove(true)}>
                   グループから削除する
                 </button>
               )}

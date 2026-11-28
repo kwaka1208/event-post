@@ -118,7 +118,7 @@ function Reply({ topic, reply, me }: { topic: TopicDoc; reply: ReplyDoc; me: Mem
           </div>
         ) : (
           <div className="actions">
-            <button type="button" className="button-text" onClick={() => setConfirming(true)}>
+            <button type="button" className="button-text is-destructive" onClick={() => setConfirming(true)}>
               消す
             </button>
           </div>
@@ -166,7 +166,7 @@ function DeleteTopic({ topic, replyCount }: { topic: TopicDoc; replyCount: numbe
         </div>
       ) : (
         <div className="actions">
-          <button type="button" className="button-text" onClick={() => setConfirming(true)}>
+          <button type="button" className="button-text is-destructive" onClick={() => setConfirming(true)}>
             話題を消す
           </button>
         </div>
