@@ -746,7 +746,7 @@ details[open] summary {
 
 /* ---------------------------------------------------------------- アプリの中のブラウザの案内 */
 
-.notice {
+.notice-warning {
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -756,10 +756,76 @@ details[open] summary {
   color: var(--few-text);
   font-size: 14px;
 }
-.notice p {
+.notice-warning p {
   margin: 0;
 }
-.notice .button-primary {
+.notice-warning .button-primary {
   text-align: center;
   text-decoration: none;
+}
+
+/* ---------------------------------------------------------------- メンバーのタグ */
+
+.segmented {
+  display: inline-flex;
+  align-self: flex-start;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card);
+  overflow: hidden;
+}
+.segmented button {
+  padding: 8px 16px;
+  border: none;
+  background: none;
+  color: var(--text-sub);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+.segmented button[aria-pressed='true'] {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+.tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.badge-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--disabled-bg);
+  color: var(--text);
+  font-weight: 400;
+}
+.tag-remove {
+  padding: 0 2px;
+  border: none;
+  background: none;
+  color: var(--text-sub);
+  font: inherit;
+  cursor: pointer;
+}
+.tag-suggest {
+  border: 1px dashed var(--border);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.tag-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.tag-input {
+  display: flex;
+  gap: 8px;
+}
+.tag-input .input {
+  flex: 1;
+  min-width: 0;
 }

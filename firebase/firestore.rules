@@ -95,7 +95,16 @@ service cloud.firestore {
 
       allow create: if isCreatingOwner(uid) || isApproving(uid);
 
-      allow update: if isChangingRole() || isEditingOwnProfile(uid);
+      allow update: if isChangingRole() || isEditingOwnProfile(uid) || isEditingTags();
+
+      // 管理者が、メンバーのタグ（グループの中での分類）を付け直す。1 人 10 個まで。
+      // タグ 1 つの文字数（20 文字まで）は、ルールでは確かめられないので画面で確かめる
+      function isEditingTags() {
+        return isAdmin()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['tags'])
+          && request.resource.data.tags is list
+          && request.resource.data.tags.size() <= 10;
+      }
 
       // 役割を変えられるのは特権管理者だけ。特権管理者自身の役割は変えられない
       function isChangingRole() {

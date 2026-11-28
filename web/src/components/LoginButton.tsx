@@ -57,7 +57,7 @@ function InAppBrowserNotice({ name }: { name: string }) {
   }
 
   return (
-    <div className="notice" role="note">
+    <div className="notice-warning" role="note">
       <p>
         <strong>Safari や Chrome で開いてください。</strong>
         {name ? `${name}${/[A-Za-z!]$/.test(name) ? ' ' : ''}の中` : 'アプリの中'}のブラウザでは、Google のログインがうまくいかず、白い画面のまま進まないことがあります。

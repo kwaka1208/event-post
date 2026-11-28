@@ -35,6 +35,8 @@ export interface Member {
   nickname: string;
   email: string;
   joinedAt: Timestamp | null;
+  /** 管理者が付けるタグ（グループの中での分類）。管理者だけが見る。付けていなければ undefined */
+  tags?: string[];
 }
 
 export interface Application {
@@ -186,6 +188,33 @@ export async function withdraw(
 /** 役割を変える（特権管理者だけ） */
 export async function changeRole(db: Firestore, uid: string, role: AssignableRole): Promise<void> {
   await updateDoc(memberRef(db, uid), { role });
+}
+
+/** メンバーのタグ。付けていなければ空 */
+export function tagsOf(m: Pick<Member, 'tags'>): string[] {
+  return m.tags ?? [];
+}
+
+const tagCollator = new Intl.Collator('ja');
+
+/** メンバーに付いているタグを、重なりなしで五十音順に返す */
+export function allTags(members: Pick<Member, 'tags'>[]): string[] {
+  return [...new Set(members.flatMap(tagsOf))].sort(tagCollator.compare);
+}
+
+/** 選んだタグのどれかが付いているメンバー */
+export function membersWithTags<T extends Pick<Member, 'tags'>>(members: T[], tags: Set<string>): T[] {
+  return members.filter((m) => tagsOf(m).some((t) => tags.has(t)));
+}
+
+/** 入力されたタグを整える（前後の空白を除き、続く空白を 1 つにする） */
+export function normalizeTag(tag: string): string {
+  return tag.trim().replace(/\s+/g, ' ');
+}
+
+/** メンバーのタグを付け直す（管理者だけ）。並びは五十音順にそろえる */
+export async function setMemberTags(db: Firestore, uid: string, tags: string[]): Promise<void> {
+  await updateDoc(memberRef(db, uid), { tags: [...new Set(tags)].sort(tagCollator.compare) });
 }
 
 /** グループから削除する。参加者は管理者が、管理者は特権管理者が削除できる */
