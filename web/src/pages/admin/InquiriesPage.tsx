@@ -86,7 +86,7 @@ function InquiryItem({ inquiry }: { inquiry: InquiryDoc }) {
         </div>
       ) : (
         <div className="actions">
-          <button type="button" className="button-text" onClick={() => setConfirming(true)}>
+          <button type="button" className="button-text is-destructive" onClick={() => setConfirming(true)}>
             削除する
           </button>
         </div>

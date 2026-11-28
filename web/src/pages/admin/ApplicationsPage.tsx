@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useAdminMember } from '@/components/RequireAdmin';
 import { Loading, LoadError } from '@/components/Status';
 import { db } from '@/lib/firebase';
+import { formatDateTime } from '@/lib/format';
 import {
   approveApplication,
   deleteApplication,
@@ -15,7 +16,6 @@ import {
 /** ログアウトのときに ['admin'] ごと消す（SessionProvider） */
 const applicationsKey = ['admin', 'applications'] as const;
 
-const dateFormat = new Intl.DateTimeFormat('ja-JP', { dateStyle: 'medium', timeStyle: 'short' });
 
 export function ApplicationsPage() {
   const me = useAdminMember();
@@ -71,7 +71,7 @@ function ApplicationItem({ application, canApproveAsAdmin }: ApplicationItemProp
         <dt>参加申し込みの理由</dt>
         <dd className="pre-wrap">{application.reason}</dd>
         <dt>申込日時</dt>
-        <dd>{application.createdAt ? dateFormat.format(application.createdAt.toDate()) : '—'}</dd>
+        <dd>{application.createdAt ? formatDateTime(application.createdAt.toDate()) : '—'}</dd>
       </dl>
 
       {approve.isError && (
@@ -116,7 +116,7 @@ function ApplicationItem({ application, canApproveAsAdmin }: ApplicationItemProp
           <button type="button" className="button-primary" disabled={busy} onClick={() => approve.mutate()}>
             {role === 'admin' ? '管理者として承認する' : '参加者として承認する'}
           </button>
-          <button type="button" className="button-secondary" disabled={busy} onClick={() => setConfirmingDelete(true)}>
+          <button type="button" className="button-secondary is-destructive" disabled={busy} onClick={() => setConfirmingDelete(true)}>
             削除する
           </button>
         </div>

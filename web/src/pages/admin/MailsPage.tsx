@@ -118,7 +118,7 @@ function MailItem({ mail }: { mail: MailDoc }) {
             </div>
           </details>
           {isMailDeletable(mail) && (
-            <button type="button" className="button-text" onClick={() => setConfirming(true)}>
+            <button type="button" className="button-text is-destructive" onClick={() => setConfirming(true)}>
               送信をやめて削除する
             </button>
           )}
