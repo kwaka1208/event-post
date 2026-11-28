@@ -149,6 +149,119 @@ a:hover {
   font-weight: 700;
 }
 
+/* スマホの幅（640px 未満。Layout.tsx の DRAWER_QUERY と合わせる）では、メニューを右から開くドロワーにする */
+.menu-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 4px;
+  border: none;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+.menu-icon,
+.menu-icon::before,
+.menu-icon::after {
+  display: block;
+  width: 18px;
+  height: 2px;
+  border-radius: 1px;
+  background: currentColor;
+}
+.menu-icon {
+  position: relative;
+}
+.menu-icon::before,
+.menu-icon::after {
+  content: '';
+  position: absolute;
+  left: 0;
+}
+.menu-icon::before {
+  top: -6px;
+}
+.menu-icon::after {
+  top: 6px;
+}
+.site-header .site-nav.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 0;
+  width: min(300px, 85vw);
+  max-width: none;
+  margin: 0;
+  padding: 0 0 24px;
+  overflow-y: auto;
+  background: var(--card);
+  box-shadow: -8px 0 24px rgb(0 0 0 / 0.12);
+  font-size: 16px;
+  transform: translateX(100%);
+  visibility: hidden;
+  transition:
+    transform 0.25s ease,
+    visibility 0s linear 0.25s;
+}
+.site-header .site-nav.drawer.is-open {
+  transform: none;
+  visibility: visible;
+  transition: transform 0.25s ease;
+}
+.site-nav.drawer a {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 20px;
+}
+.site-nav.drawer a.active {
+  background: var(--accent-light);
+}
+.drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 60px;
+  margin-bottom: 8px;
+  padding: 0 12px 0 20px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-sub);
+  font-size: 13px;
+}
+.drawer-section {
+  margin: 12px 20px 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--divider);
+  color: var(--text-sub);
+  font-size: 12px;
+  font-weight: 700;
+}
+.drawer-logout {
+  align-self: flex-start;
+  margin: 16px 12px 0;
+}
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  background: rgb(0 0 0 / 0.35);
+}
+@media (prefers-reduced-motion: reduce) {
+  .site-header .site-nav.drawer,
+  .site-header .site-nav.drawer.is-open {
+    transition: none;
+  }
+}
+
 .main {
   flex: 1;
   width: 100%;
