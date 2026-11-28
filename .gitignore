@@ -9,3 +9,5 @@ firestore-debug.log
 ui-debug.log
 # Deploy が Firestore から作る OGP の値（scripts/ogp.ts）
 web/ogp.json
+# 旧版（Astro）が手元で作るキャッシュ
+.astro/
