@@ -144,11 +144,30 @@ a:hover {
   align-items: center;
   min-height: 44px;
 }
-/* メンバー向けと管理者向けのメニューの区切り */
-.nav-divider {
-  width: 1px;
-  height: 16px;
-  background: var(--border);
+/* メニューのまとまり。広い画面では、1 行目がメンバーのメニュー、2 行目が管理者のメニュー */
+.site-header .site-nav:not(.drawer) {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+.nav-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 16px;
+}
+.site-nav:not(.drawer) .nav-admin {
+  border-top: 1px solid var(--divider);
+}
+.nav-label {
+  color: var(--text-sub);
+  font-size: 12px;
+  font-weight: 700;
+}
+.site-nav:not(.drawer) .nav-label {
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--bg);
 }
 .site-nav a {
   color: var(--text-sub);
@@ -250,13 +269,16 @@ a:hover {
   color: var(--text-sub);
   font-size: 13px;
 }
-.drawer-section {
+.site-nav.drawer .nav-group {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 0;
+}
+.site-nav.drawer .nav-label {
   margin: 12px 20px 4px;
   padding-top: 12px;
   border-top: 1px solid var(--divider);
-  color: var(--text-sub);
-  font-size: 12px;
-  font-weight: 700;
 }
 .drawer-logout {
   align-self: flex-start;
@@ -1158,6 +1180,8 @@ img.avatar {
 }
 .photo-field .actions {
   flex: 1;
+}
+
 /* ---------------------------------------------------------------- 操作の見え方 */
 /* 取り消せない操作（削除・退会）の最初のボタンは、赤い文字で見分けられるようにする。確認の画面は別にある */
 .button-secondary.is-destructive,

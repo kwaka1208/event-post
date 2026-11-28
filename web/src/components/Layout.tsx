@@ -116,21 +116,26 @@ export function Layout() {
                 </button>
               </div>
             )}
-            <NavLink to="/events">イベント</NavLink>
-            <NavLink to="/board">掲示板</NavLink>
-            <NavLink to="/members">メンバー</NavLink>
-            <NavLink to="/me">マイページ</NavLink>
-            {!isAdmin && <NavLink to="/contact">問い合わせ</NavLink>}
+            <div className="nav-group">
+              <NavLink to="/events">イベント</NavLink>
+              <NavLink to="/board">掲示板</NavLink>
+              <NavLink to="/members">メンバー</NavLink>
+              <NavLink to="/me">マイページ</NavLink>
+              {!isAdmin && <NavLink to="/contact">問い合わせ</NavLink>}
+            </div>
+            {/* 管理者のメニューは、1 行目のメンバーのメニューと分けて、2 行目（ドロワーでは下の段）にまとめる */}
             {isAdmin && (
-              <>
-                {drawer ? <span className="drawer-section">管理</span> : <span className="nav-divider" aria-hidden="true" />}
+              <div className="nav-group nav-admin" role="group" aria-labelledby={`${navId}-admin`}>
+                <span className="nav-label" id={`${navId}-admin`}>
+                  管理
+                </span>
                 <NavLink to="/admin/events">イベント管理</NavLink>
                 <NavLink to="/admin/applications">参加申し込み</NavLink>
                 <NavLink to="/admin/members">メンバー管理</NavLink>
                 <NavLink to="/admin/mails">メール</NavLink>
                 <NavLink to="/admin/inquiries">問い合わせ</NavLink>
                 <NavLink to="/admin/settings">設定</NavLink>
-              </>
+              </div>
             )}
             {drawer && (
               <button type="button" className="button-text drawer-logout" onClick={() => void logout()}>
