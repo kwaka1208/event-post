@@ -27,4 +27,6 @@ export const LIMITS = {
   introBio: 100,
   /** メンバー一覧に出す URL */
   introUrl: 500,
+  /** プロフィール画像（data: URL の文字数。192px 四方の JPEG で 2〜3 万字ほど） */
+  introPhoto: 100000,
 } as const;

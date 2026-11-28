@@ -1,6 +1,6 @@
 // グループ（group/profile）の読み書き。
 // db を引数で受け取るのは、エミュレーターのテスト（tests/rules/）からも同じ関数を使うため。
-import { doc, getDoc, serverTimestamp, updateDoc, writeBatch, type Firestore, type Timestamp } from 'firebase/firestore';
+import { deleteField, doc, getDoc, serverTimestamp, updateDoc, writeBatch, type Firestore, type Timestamp } from 'firebase/firestore';
 import type { SignedInUser } from './membership';
 
 export interface GroupProfile {
@@ -10,6 +10,8 @@ export interface GroupProfile {
   ownerName: string;
   ownerUid: string;
   createdAt: Timestamp | null;
+  /** 管理者が選んだテーマカラー（#rrggbb）。選んでいなければ undefined（標準の色） */
+  accentColor?: string;
 }
 
 export interface GroupInput {
@@ -59,4 +61,9 @@ export async function createGroup(
 /** グループの情報を変える（特権管理者だけ） */
 export async function updateGroup(db: Firestore, group: GroupInput): Promise<void> {
   await updateDoc(groupRef(db), { ...group });
+}
+
+/** テーマカラーを変える（管理者）。null なら標準の色に戻す。色はコントラストを確かめてから渡す */
+export async function updateAccentColor(db: Firestore, color: string | null): Promise<void> {
+  await updateDoc(groupRef(db), { accentColor: color ?? deleteField() });
 }

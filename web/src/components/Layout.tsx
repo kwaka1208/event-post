@@ -2,6 +2,7 @@ import { Suspense, useEffect, useId, useRef, useState, useSyncExternalStore } fr
 import { Link, NavLink, Outlet, useLocation } from 'react-router';
 import { Loading } from '@/components/Status';
 import { isAdminRole } from '@/lib/membership';
+import { applyAccent } from '@/lib/theme';
 import { useSession } from '@/session/SessionProvider';
 
 const FIRESIDE_URL = 'https://github.com/kwaka1208/fireside';
@@ -27,13 +28,18 @@ export function Layout() {
   const nickname = session?.kind === 'member' ? session.member.nickname : null;
   const isMember = session?.kind === 'member';
   const isAdmin = isMember && isAdminRole(session.member.role);
-  const isOwner = isMember && session.member.role === 'owner';
   const signedIn = session && (session.kind === 'no-group' ? !!session.user : session.kind !== 'guest');
   const email = session && 'user' in session ? session.user?.email : null;
 
   useEffect(() => {
     document.title = groupName ?? 'Fireside';
   }, [groupName]);
+
+  // 管理者が選んだテーマカラーを、画面全体に当てる（グループを読めたときだけ。読めないあいだは前の色のまま）
+  const accentColor = session && session.kind !== 'no-group' ? (session.group.accentColor ?? null) : undefined;
+  useEffect(() => {
+    if (accentColor !== undefined) applyAccent(accentColor);
+  }, [accentColor]);
 
   // スマホの幅では、メニューを右から開くドロワーにする
   const narrow = useIsNarrow();
@@ -123,7 +129,7 @@ export function Layout() {
                 <NavLink to="/admin/members">メンバー管理</NavLink>
                 <NavLink to="/admin/mails">メール</NavLink>
                 <NavLink to="/admin/inquiries">問い合わせ</NavLink>
-                {isOwner && <NavLink to="/admin/settings">設定</NavLink>}
+                <NavLink to="/admin/settings">設定</NavLink>
               </>
             )}
             {drawer && (

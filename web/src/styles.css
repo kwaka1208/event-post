@@ -952,15 +952,22 @@ details[open] summary {
   list-style: none;
 }
 .directory > li {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 16px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 12px;
   padding: 12px 0;
   border-bottom: 1px solid var(--divider);
 }
 .directory > li:last-child {
   border-bottom: none;
+}
+.directory-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 16px;
+  min-width: 0;
 }
 .directory-name {
   font-weight: 700;
@@ -1024,4 +1031,113 @@ details[open] summary {
   transform: translateY(-50%);
   color: var(--text-sub);
   font-size: 20px;
+}
+
+/* ---------------------------------------------------------------- 配色の設定 */
+.swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+}
+.swatch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-button);
+  background: var(--card);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+.swatch:hover {
+  background: var(--bg);
+}
+.swatch[aria-checked='true'] {
+  border-color: var(--swatch);
+  box-shadow: 0 0 0 1px var(--swatch);
+  font-weight: 700;
+}
+.swatch-chip {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--swatch);
+}
+.swatch[aria-checked='true'] .swatch-chip {
+  box-shadow:
+    0 0 0 2px var(--card),
+    0 0 0 4px var(--swatch);
+}
+.color-input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.color-input input[type='color'] {
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-button);
+  background: var(--card);
+  cursor: pointer;
+}
+.color-input .input {
+  max-width: 10em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+/* 見本は、選んでいる色をこの中だけで当てる（保存するまで、ほかの画面は変えない） */
+.accent-preview {
+  --accent-light: color-mix(in srgb, var(--accent) 12%, #fff);
+  --accent-hover: color-mix(in srgb, var(--accent) 80%, #000);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 10px;
+  background: var(--bg);
+}
+.accent-preview-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+}
+.accent-preview .button-primary {
+  min-height: 44px;
+  padding: 0 24px;
+  cursor: default;
+}
+
+/* ---------------------------------------------------------------- プロフィール画像 */
+.avatar {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--accent-light);
+  color: var(--accent);
+  font-weight: 700;
+  line-height: 1;
+  user-select: none;
+}
+img.avatar {
+  background: var(--divider);
+}
+.photo-field {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.photo-field .actions {
+  flex: 1;
 }
