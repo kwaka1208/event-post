@@ -132,10 +132,23 @@ a:hover {
 .site-header .site-nav {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 20px;
+  align-items: center;
+  gap: 0 16px;
   min-height: 0;
-  padding-bottom: 10px;
+  padding-bottom: 2px;
   font-size: 14px;
+}
+/* 押せる範囲を 44px の高さにする（文字の大きさは変えない） */
+.site-nav:not(.drawer) a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+/* メンバー向けと管理者向けのメニューの区切り */
+.nav-divider {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
 }
 .site-nav a {
   color: var(--text-sub);
@@ -614,6 +627,11 @@ ul.error {
 .back {
   margin: 0;
   font-size: 14px;
+}
+.back a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
 }
 .address {
   display: block;
@@ -1140,4 +1158,35 @@ img.avatar {
 }
 .photo-field .actions {
   flex: 1;
+/* ---------------------------------------------------------------- 操作の見え方 */
+/* 取り消せない操作（削除・退会）の最初のボタンは、赤い文字で見分けられるようにする。確認の画面は別にある */
+.button-secondary.is-destructive,
+.button-text.is-destructive {
+  color: var(--danger);
+}
+.button-secondary.is-destructive:hover:not(:disabled) {
+  color: var(--danger);
+  background: var(--danger-bg);
+}
+
+/* 広い画面では、ボタンを文字に合わせた幅にして、横に並べる（全幅の帯にしない）。
+   スマホの幅では、押しやすいように画面の幅いっぱいのまま */
+@media (min-width: 640px) {
+  .main .button-primary,
+  .main .button-secondary,
+  .main .button-danger {
+    align-self: flex-start;
+    min-width: 160px;
+    min-height: 48px;
+    padding: 0 28px;
+  }
+  .main .actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+  }
+  .main .actions > .button-text {
+    align-self: center;
+  }
 }

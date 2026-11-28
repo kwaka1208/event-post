@@ -280,7 +280,7 @@ function DeleteSection({ event }: { event: EventDoc }) {
           </div>
         </div>
       ) : (
-        <button type="button" className="button-secondary" onClick={() => setConfirming(true)}>
+        <button type="button" className="button-secondary is-destructive" onClick={() => setConfirming(true)}>
           このイベントを削除する
         </button>
       )}

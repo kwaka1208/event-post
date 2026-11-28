@@ -123,7 +123,7 @@ export function Layout() {
             {!isAdmin && <NavLink to="/contact">問い合わせ</NavLink>}
             {isAdmin && (
               <>
-                {drawer && <span className="drawer-section">管理</span>}
+                {drawer ? <span className="drawer-section">管理</span> : <span className="nav-divider" aria-hidden="true" />}
                 <NavLink to="/admin/events">イベント管理</NavLink>
                 <NavLink to="/admin/applications">参加申し込み</NavLink>
                 <NavLink to="/admin/members">メンバー管理</NavLink>
