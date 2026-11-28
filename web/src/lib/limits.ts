@@ -16,6 +16,10 @@ export const LIMITS = {
   mailRecipients: 500,
   inquirySubject: 200,
   inquiryBody: 5000,
+  /** メンバーに付けるタグ 1 つの文字数 */
+  memberTag: 20,
+  /** 1 人に付けられるタグの数 */
+  memberTags: 10,
   topicTitle: 100,
   /** 掲示板の話題と返信の本文 */
   postBody: 5000,

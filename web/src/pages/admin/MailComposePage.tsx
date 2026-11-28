@@ -1,4 +1,4 @@
-// メールを書く（管理者）。宛先は「全員」「選んだ人」、または ?event=ID のときは「イベントの申込者」。
+// メールを書く（管理者）。宛先は「全員」「タグで選ぶ」「選んだ人」、または ?event=ID のときは「イベントの申込者」。
 // 保存すると送信待ちになり、毎時の Actions が 1 人ずつ送る
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState, type FormEvent } from 'react';
@@ -10,12 +10,12 @@ import { getEvent } from '@/lib/events';
 import { db } from '@/lib/firebase';
 import { LIMITS } from '@/lib/limits';
 import { createMail, recipientOf, type MailRecipient } from '@/lib/mails';
-import { listMembers, type Member } from '@/lib/membership';
+import { allTags, listMembers, membersWithTags, tagsOf, type Member } from '@/lib/membership';
 import { listRegistrations } from '@/lib/registrations';
 import { adminEventsKey } from './adminEventsKey';
 import { mailsKey, membersKey } from './adminKeys';
 
-type Mode = 'all' | 'select' | 'event';
+type Mode = 'all' | 'tag' | 'select' | 'event';
 
 export function MailComposePage() {
   const [params] = useSearchParams();
@@ -49,6 +49,8 @@ function MailForm({
   const queryClient = useQueryClient();
   const [mode, setMode] = useState<Mode>(eventRecipients ? 'event' : 'all');
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
+  const tags = useMemo(() => allTags(members), [members]);
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [errors, setErrors] = useState<string[]>([]);
@@ -56,9 +58,14 @@ function MailForm({
 
   const recipients = useMemo(() => {
     if (mode === 'event') return eventRecipients?.recipients ?? [];
-    const list = mode === 'all' ? members : members.filter((m) => selected.has(m.uid));
+    const list =
+      mode === 'all'
+        ? members
+        : mode === 'tag'
+          ? membersWithTags(members, selectedTags)
+          : members.filter((m) => selected.has(m.uid));
     return list.map(recipientOf);
-  }, [mode, members, selected, eventRecipients]);
+  }, [mode, members, selected, selectedTags, eventRecipients]);
 
   const save = useMutation({
     mutationFn: () => createMail(db, me, { subject: subject.trim(), body: body.trim(), recipients }),
@@ -80,13 +87,7 @@ function MailForm({
     if (found.length === 0) setConfirming(true);
   }
 
-  const toggle = (uid: string) =>
-    setSelected((s) => {
-      const next = new Set(s);
-      if (next.has(uid)) next.delete(uid);
-      else next.add(uid);
-      return next;
-    });
+  const toggle = (uid: string) => setSelected((s) => toggled(s, uid));
 
   return (
     <main className="main">
@@ -107,6 +108,26 @@ function MailForm({
             <input type="radio" name="mode" checked={mode === 'all'} onChange={() => setMode('all')} />
             <span>メンバー全員（{members.length} 人）</span>
           </label>
+          {tags.length > 0 && (
+            <label className="checkbox">
+              <input type="radio" name="mode" checked={mode === 'tag'} onChange={() => setMode('tag')} />
+              <span>タグで選ぶ</span>
+            </label>
+          )}
+          {mode === 'tag' && (
+            <div className="pick-list">
+              <span className="help">選んだタグのどれかが付いている人に送ります。</span>
+              {tags.map((t) => (
+                <label key={t} className="checkbox">
+                  <input type="checkbox" checked={selectedTags.has(t)} onChange={() => setSelectedTags((s) => toggled(s, t))} />
+                  <span>
+                    {t}
+                    <span className="card-subtitle">（{members.filter((m) => tagsOf(m).includes(t)).length} 人）</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          )}
           <label className="checkbox">
             <input type="radio" name="mode" checked={mode === 'select'} onChange={() => setMode('select')} />
             <span>メンバーから選ぶ</span>
@@ -184,4 +205,11 @@ function MailForm({
       </form>
     </main>
   );
+}
+
+function toggled<T>(set: Set<T>, value: T): Set<T> {
+  const next = new Set(set);
+  if (next.has(value)) next.delete(value);
+  else next.add(value);
+  return next;
 }
