@@ -18,6 +18,7 @@ const ApplicationsPage = page(() => import('@/pages/admin/ApplicationsPage'), 'A
 const InquiriesPage = page(() => import('@/pages/admin/InquiriesPage'), 'InquiriesPage');
 const MailComposePage = page(() => import('@/pages/admin/MailComposePage'), 'MailComposePage');
 const MailsPage = page(() => import('@/pages/admin/MailsPage'), 'MailsPage');
+const MemberDetailPage = page(() => import('@/pages/admin/MemberDetailPage'), 'MemberDetailPage');
 const MembersPage = page(() => import('@/pages/admin/MembersPage'), 'MembersPage');
 const SettingsPage = page(() => import('@/pages/admin/SettingsPage'), 'SettingsPage');
 const BoardPage = page(() => import('@/pages/BoardPage'), 'BoardPage');
@@ -70,6 +71,7 @@ const router = createBrowserRouter(
             { path: '/admin/events/new', element: <EventNewPage /> },
             { path: '/admin/events/:id', element: <EventEditPage /> },
             { path: '/admin/members', element: <MembersPage /> },
+            { path: '/admin/members/:uid', element: <MemberDetailPage /> },
             { path: '/admin/mails', element: <MailsPage /> },
             { path: '/admin/mails/new', element: <MailComposePage /> },
             { path: '/admin/inquiries', element: <InquiriesPage /> },

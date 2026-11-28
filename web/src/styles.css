@@ -974,3 +974,54 @@ details[open] summary {
   overflow-wrap: anywhere;
   font-size: 14px;
 }
+
+/* ---------------------------------------------------------------- メンバー管理の一覧 */
+/* ひとり一行。行を押すと、その人の詳細を開く */
+.member-rows {
+  gap: 0;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+}
+.member-rows > li + li {
+  border-top: 1px solid var(--divider);
+}
+.member-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  min-height: 52px;
+  padding: 10px 40px 10px 20px;
+  position: relative;
+  color: var(--text);
+  text-decoration: none;
+}
+.member-row:hover {
+  background: var(--accent-light);
+  color: var(--text);
+}
+.member-row-name {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.member-row-name .card-subtitle {
+  font-weight: 400;
+}
+.member-row-role {
+  color: var(--text-sub);
+  font-size: 13px;
+}
+.member-row-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.member-row-arrow {
+  position: absolute;
+  top: 50%;
+  right: 16px;
+  transform: translateY(-50%);
+  color: var(--text-sub);
+  font-size: 20px;
+}
