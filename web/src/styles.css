@@ -829,3 +829,35 @@ details[open] summary {
   flex: 1;
   min-width: 0;
 }
+
+/* ---------------------------------------------------------------- メンバー一覧 */
+/* ひとり一行。幅が足りないときは、行の中で折り返す */
+.directory {
+  gap: 0;
+  margin: 0;
+  padding: 4px 20px;
+  list-style: none;
+}
+.directory > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--divider);
+}
+.directory > li:last-child {
+  border-bottom: none;
+}
+.directory-name {
+  font-weight: 700;
+}
+.directory-bio {
+  flex: 1 1 16em;
+  overflow-wrap: anywhere;
+}
+.directory-url {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+}

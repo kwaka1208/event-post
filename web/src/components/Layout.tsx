@@ -41,13 +41,14 @@ export function Layout() {
           <nav className="inner site-nav" aria-label="メニュー">
             <NavLink to="/events">イベント</NavLink>
             <NavLink to="/board">掲示板</NavLink>
+            <NavLink to="/members">メンバー</NavLink>
             <NavLink to="/me">マイページ</NavLink>
             {!isAdmin && <NavLink to="/contact">問い合わせ</NavLink>}
             {isAdmin && (
               <>
                 <NavLink to="/admin/events">イベント管理</NavLink>
                 <NavLink to="/admin/applications">参加申し込み</NavLink>
-                <NavLink to="/admin/members">メンバー</NavLink>
+                <NavLink to="/admin/members">メンバー管理</NavLink>
                 <NavLink to="/admin/mails">メール</NavLink>
                 <NavLink to="/admin/inquiries">問い合わせ</NavLink>
                 {isOwner && <NavLink to="/admin/settings">設定</NavLink>}

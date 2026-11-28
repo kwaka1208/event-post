@@ -15,6 +15,7 @@ import {
   type Firestore,
   type Timestamp,
 } from 'firebase/firestore';
+import { directoryRef, getDirectoryEntry } from './directory';
 import { isPermissionDenied } from './errors';
 import { cancelRegistration } from './registrations';
 
@@ -118,7 +119,7 @@ export async function deleteApplication(db: Firestore, uid: string): Promise<voi
 }
 
 /**
- * 申し込みを承認する。members の作成と申し込みの削除を 1 回の書き込みで行う。
+ * 申し込みを承認する。members とメンバー一覧（directory）の作成と、申し込みの削除を 1 回の書き込みで行う。
  * 管理者として承認できるのは特権管理者だけ（ほかはルールで拒否される）
  */
 export async function approveApplication(db: Firestore, app: Application, role: AssignableRole): Promise<void> {
@@ -131,6 +132,7 @@ export async function approveApplication(db: Firestore, app: Application, role: 
     email: app.email,
     joinedAt: serverTimestamp(),
   });
+  batch.set(directoryRef(db, app.uid), { uid: app.uid, nickname: app.nickname, bio: '', url: '' });
   batch.delete(applicationRef(db, app.uid));
   await batch.commit();
 }
@@ -144,12 +146,17 @@ export interface ProfileInput {
 const PROFILE_SYNC_CHUNK = 10;
 
 /**
- * 本人が自分の本名とニックネームを変える。そのあと、開始前のイベントの申込に残っている名前の写しをそろえる
+ * 本人が自分の本名とニックネームを変える。メンバー一覧（directory）のニックネームも同じ書き込みで変える。
+ * そのあと、開始前のイベントの申込に残っている名前の写しをそろえる
  * （eventIds は開始前のイベントの ID。ルールが開始前かと、members と同じ名前かを確かめる）。
  * 写しをそろえる途中で失敗しても、members の変更は残る
  */
 export async function updateProfile(db: Firestore, uid: string, input: ProfileInput, eventIds: string[]): Promise<void> {
-  await updateDoc(memberRef(db, uid), { realName: input.realName, nickname: input.nickname });
+  const entry = await getDirectoryEntry(db, uid);
+  const batch = writeBatch(db);
+  batch.update(memberRef(db, uid), { realName: input.realName, nickname: input.nickname });
+  batch.set(directoryRef(db, uid), { uid, nickname: input.nickname, bio: entry?.bio ?? '', url: entry?.url ?? '' });
+  await batch.commit();
   for (let i = 0; i < eventIds.length; i += PROFILE_SYNC_CHUNK) {
     const batch = writeBatch(db);
     for (const eventId of eventIds.slice(i, i + PROFILE_SYNC_CHUNK)) {
@@ -163,7 +170,8 @@ export async function updateProfile(db: Firestore, uid: string, input: ProfileIn
 }
 
 /**
- * 本人が退会する。先に開始前のイベントの申込をキャンセルしてから（定員の枠を空ける）、members を消す。
+ * 本人が退会する。先に開始前のイベントの申込をキャンセルしてから（定員の枠を空ける）、
+ * members とメンバー一覧（directory）を同じ書き込みで消す。
  * cancelEventIds は開始前と分かっているイベントで、キャンセルに失敗したら退会しない。
  * tryCancelEventIds は下書きに戻されて開始日時が分からないイベントで、開始後でキャンセルできなければそのままにする。
  * 開始後のイベントの申込は、参加の記録として残す。特権管理者はルールで退会できない
@@ -182,7 +190,7 @@ export async function withdraw(
       if (!isPermissionDenied(e)) throw e;
     }
   }
-  await deleteDoc(memberRef(db, uid));
+  await removeMemberAndEntry(db, uid);
 }
 
 /** 役割を変える（特権管理者だけ） */
@@ -219,5 +227,13 @@ export async function setMemberTags(db: Firestore, uid: string, tags: string[]):
 
 /** グループから削除する。参加者は管理者が、管理者は特権管理者が削除できる */
 export async function removeMember(db: Firestore, uid: string): Promise<void> {
-  await deleteDoc(memberRef(db, uid));
+  await removeMemberAndEntry(db, uid);
+}
+
+/** members と、メンバー一覧（directory）を同じ書き込みで消す */
+async function removeMemberAndEntry(db: Firestore, uid: string): Promise<void> {
+  const batch = writeBatch(db);
+  batch.delete(memberRef(db, uid));
+  batch.delete(directoryRef(db, uid));
+  await batch.commit();
 }

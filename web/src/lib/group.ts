@@ -52,6 +52,7 @@ export async function createGroup(
     email: user.email,
     joinedAt: serverTimestamp(),
   });
+  batch.set(doc(db, 'directory', user.uid), { uid: user.uid, nickname: owner.nickname, bio: '', url: '' });
   await batch.commit();
 }
 
